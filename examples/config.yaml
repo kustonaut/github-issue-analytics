@@ -1,0 +1,155 @@
+# =============================================================================
+# GitHub Issue Analytics — Configuration
+# =============================================================================
+# Full reference: https://github.com/kustonaut/github-issue-analytics#configuration
+#
+# All label mappings, thresholds, and filtering rules are defined here.
+# This makes the tool work with ANY GitHub repository — not just the one
+# it was extracted from.
+# =============================================================================
+
+# Repository to analyze (owner/name format)
+repo: "microsoft/vscode"
+
+# GitHub personal access token (optional — falls back to GITHUB_TOKEN env var)
+# github_token: "ghp_..."
+
+# ---------------------------------------------------------------------------
+# Area Labels
+# ---------------------------------------------------------------------------
+# Map your repository's labels to logical product areas.
+# Key = area name, Value = list of label prefixes/patterns.
+#
+# Issues are classified into areas by matching their labels against these
+# patterns (case-insensitive prefix match).
+area_labels:
+  editor:
+    - "editor-"
+    - "workbench-editor"
+  terminal:
+    - "terminal"
+    - "integrated-terminal"
+  extensions:
+    - "extensions"
+    - "extension-host"
+  debugging:
+    - "debug"
+    - "debugger"
+  scm:
+    - "git"
+    - "scm"
+  search:
+    - "search"
+  tasks:
+    - "tasks"
+
+# ---------------------------------------------------------------------------
+# Issue Type Labels
+# ---------------------------------------------------------------------------
+# Map labels to issue types: bug, feature, question, regression, etc.
+type_labels:
+  bug:
+    - "bug"
+    - "type-bug"
+  feature:
+    - "feature-request"
+    - "type-feature-request"
+  regression:
+    - "regression"
+    - "type-regression"
+  question:
+    - "question"
+    - "type-question"
+  performance:
+    - "perf"
+    - "performance"
+  documentation:
+    - "documentation"
+
+# ---------------------------------------------------------------------------
+# Status Labels
+# ---------------------------------------------------------------------------
+# Map labels to lifecycle status: triaged, in-progress, needs-info, etc.
+status_labels:
+  triaged:
+    - "triaged"
+    - "confirmed"
+  in_progress:
+    - "in-progress"
+    - "fix-committed"
+    - "under-investigation"
+  needs_info:
+    - "needs-more-info"
+    - "waiting-for-customer"
+  wont_fix:
+    - "wontfix"
+    - "by-design"
+    - "out-of-scope"
+  duplicate:
+    - "duplicate"
+
+# ---------------------------------------------------------------------------
+# Tracking Patterns
+# ---------------------------------------------------------------------------
+# Regex patterns that indicate an issue has an internal tracking ID.
+# Useful for measuring "tracked issue" rates.
+tracking_patterns:
+  - name: "ado"
+    pattern: "(?:ADO|AB)#\\d+"
+  - name: "jira"
+    pattern: "[A-Z]{2,}-\\d+"
+  - name: "internal"
+    pattern: "(?:INT|TRACK)-\\d+"
+
+# ---------------------------------------------------------------------------
+# Thresholds
+# ---------------------------------------------------------------------------
+# Tunable knobs for health scoring and alerting.
+thresholds:
+  # Fix rate target (0.0 - 1.0). Below this = penalty in SHS.
+  target_fix_rate: 0.05
+
+  # Target median age in days. Above this = penalty in SHS.
+  target_median_age_days: 180
+
+  # Days after which an issue is considered "stale" (no activity).
+  stale_days: 365
+
+  # Regression penalty multiplier for SHS.
+  regression_penalty: 2.0
+
+  # Maximum acceptable Time To First Response (days).
+  max_acceptable_ttfr_days: 14
+
+  # Thresholds for "high engagement" issues (potential escalations).
+  high_reaction_threshold: 10
+  high_comment_threshold: 20
+
+  # Backlog age distribution buckets (in days).
+  backlog_age_buckets:
+    - 30
+    - 90
+    - 180
+    - 365
+    - 730
+    - 1095
+
+# ---------------------------------------------------------------------------
+# Org Members & Bots
+# ---------------------------------------------------------------------------
+# Used to distinguish community vs. internal issues, and filter bot noise.
+org_members: []
+#  - "member1"
+#  - "member2"
+
+bots:
+  - "dependabot[bot]"
+  - "github-actions[bot]"
+  - "renovate[bot]"
+  - "copilot-swe-agent[bot]"
+
+# ---------------------------------------------------------------------------
+# Output Configuration
+# ---------------------------------------------------------------------------
+output_dir: "./gia_output"
+cache_dir: "./gia_cache"

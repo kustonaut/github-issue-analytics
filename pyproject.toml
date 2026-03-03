@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "github-issue-analytics"
+version = "0.1.0"
+description = "Turn thousands of GitHub issues into actionable intelligence — ETL, metrics, heatmaps, dashboards."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Akshay Dixit", email = "kustonaut@users.noreply.github.com"},
+]
+keywords = [
+    "github",
+    "issues",
+    "analytics",
+    "metrics",
+    "dashboard",
+    "heatmap",
+    "devops",
+    "project-management",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Bug Tracking",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+gia = "github_issue_analytics.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/kustonaut/github-issue-analytics"
+Documentation = "https://github.com/kustonaut/github-issue-analytics#readme"
+Repository = "https://github.com/kustonaut/github-issue-analytics"
+Issues = "https://github.com/kustonaut/github-issue-analytics/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
