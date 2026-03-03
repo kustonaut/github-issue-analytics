@@ -30,7 +30,7 @@
 
 **Turn thousands of GitHub issues into actionable intelligence. ETL, metrics, heatmaps, dashboards.**
 
-> *Built by a PM who manages 6,000+ GitHub issues and needed answers — not opinions.*
+> *Because at scale, you need data — not opinions.*
 
 [**📦 PyPI**](https://pypi.org/project/github-issue-analytics/) · [**🤝 Contributing**](CONTRIBUTING.md)
 
@@ -346,6 +346,6 @@ MIT — see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Built by [@kustonaut](https://github.com/kustonaut)** — a PM who manages 6,000+ GitHub issues and needed data, not opinions.
+**Built by [@kustonaut](https://github.com/kustonaut)** — open-source tools for engineering teams at scale.
 
 </div>
