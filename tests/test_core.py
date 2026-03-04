@@ -359,3 +359,109 @@ class TestDashboard:
 
         assert out_path.exists()
         assert out_path.stat().st_size > 1000
+
+
+# =============================================================================
+# Heatmap Tests
+# =============================================================================
+
+
+class TestHeatmap:
+    def test_generate_heatmap_png(self, sample_config, sample_issues, closed_issues, tmp_path):
+        """Generate a heatmap PNG and verify it saved."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.heatmap import generate_heatmap
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute(sample_issues, closed_issues)
+
+        out_path = tmp_path / "heatmap.png"
+        path = generate_heatmap(result, out_path)
+
+        assert path is not None
+        assert Path(path).exists()
+        assert Path(path).stat().st_size > 1000
+
+    def test_heatmap_base64_when_no_path(self, sample_config, sample_issues, closed_issues):
+        """When output_path is None, returns base64 string."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.heatmap import generate_heatmap
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute(sample_issues, closed_issues)
+
+        b64 = generate_heatmap(result, None)
+        assert b64 is not None
+        assert len(b64) > 100  # reasonable base64 length
+
+    def test_heatmap_returns_none_for_empty_areas(self, sample_config):
+        """No per_area data → returns None gracefully."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.heatmap import generate_heatmap
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute([], [])
+
+        assert generate_heatmap(result) is None
+
+    def test_save_heatmap_raises_on_empty(self, sample_config, tmp_path):
+        """save_heatmap should raise ValueError for empty data."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.heatmap import save_heatmap
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute([], [])
+
+        with pytest.raises(ValueError, match="No per_area"):
+            save_heatmap(result, tmp_path / "empty.png")
+
+
+# =============================================================================
+# Funnel Tests
+# =============================================================================
+
+
+class TestFunnel:
+    def test_generate_funnel_png(self, sample_config, sample_issues, closed_issues, tmp_path):
+        """Generate a funnel PNG and verify it saved."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.funnel import generate_funnel
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute(sample_issues, closed_issues)
+
+        out_path = tmp_path / "funnel.png"
+        path = generate_funnel(result, out_path)
+
+        assert path is not None
+        assert Path(path).exists()
+        assert Path(path).stat().st_size > 1000
+
+    def test_funnel_base64_when_no_path(self, sample_config, sample_issues, closed_issues):
+        """When output_path is None, returns base64 string."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.funnel import generate_funnel
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute(sample_issues, closed_issues)
+
+        b64 = generate_funnel(result, None)
+        assert b64 is not None
+        assert len(b64) > 100
+
+    def test_funnel_stages_match_metrics(self, sample_config, sample_issues, closed_issues):
+        """Verify stage values map correctly from MetricsResult."""
+        pytest.importorskip("matplotlib")
+        from github_issue_analytics.funnel import _build_stages
+
+        engine = MetricsEngine(sample_config)
+        result = engine.compute(sample_issues, closed_issues)
+
+        stages = _build_stages(result)
+        assert len(stages) == 4
+        assert stages[0].label == "INTAKE"
+        assert stages[1].label == "TRIAGE"
+        assert stages[2].label == "ACTIVE"
+        assert stages[3].label == "CLOSING"
+        assert stages[0].value == result.backlog.total or stages[0].value == result.total_open
+        assert stages[3].value == result.total_closed_recent

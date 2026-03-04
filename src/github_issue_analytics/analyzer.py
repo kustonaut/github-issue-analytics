@@ -20,6 +20,8 @@ from typing import Any
 from github_issue_analytics.config import Config
 from github_issue_analytics.dashboard import generate_dashboard, save_dashboard
 from github_issue_analytics.etl import GitHubETL
+from github_issue_analytics.funnel import generate_funnel
+from github_issue_analytics.heatmap import generate_heatmap
 from github_issue_analytics.metrics import MetricsEngine, MetricsResult
 from github_issue_analytics.reporter import generate_markdown_report
 from github_issue_analytics.trends import TrendStore
@@ -34,11 +36,15 @@ class AnalysisResult:
         report: str,
         dashboard_html: str,
         output_dir: Path,
+        heatmap_path: str | None = None,
+        funnel_path: str | None = None,
     ):
         self.metrics = metrics
         self.report = report
         self.dashboard_html = dashboard_html
         self.output_dir = output_dir
+        self.heatmap_path = heatmap_path
+        self.funnel_path = funnel_path
 
     @property
     def shs(self) -> float:
@@ -62,10 +68,29 @@ class AnalysisResult:
         dashboard_path = self.output_dir / "dashboard.html"
         save_dashboard(self.dashboard_html, dashboard_path)
 
-        return {
+        paths = {
             "report": str(report_path),
             "dashboard": str(dashboard_path),
         }
+
+        # Heatmap (matplotlib; skip if no per_area data or matplotlib missing)
+        if self.metrics.per_area:
+            try:
+                heatmap_path = self.output_dir / "heatmap.png"
+                self.heatmap_path = generate_heatmap(self.metrics, heatmap_path)
+                paths["heatmap"] = self.heatmap_path
+            except ImportError:
+                pass  # matplotlib not installed — skip silently
+
+        # Funnel
+        try:
+            funnel_path = self.output_dir / "funnel.png"
+            self.funnel_path = generate_funnel(self.metrics, funnel_path)
+            paths["funnel"] = self.funnel_path
+        except ImportError:
+            pass
+
+        return paths
 
 
 class Analyzer:
@@ -199,11 +224,28 @@ class Analyzer:
 
         output_dir = Path(self.config.output_dir)
 
+        # 7. Generate heatmap + funnel (best-effort; matplotlib optional)
+        heatmap_path = None
+        funnel_path = None
+        try:
+            hp = output_dir / "heatmap.png"
+            heatmap_path = generate_heatmap(metrics, hp)
+        except (ImportError, Exception):
+            pass
+
+        try:
+            fp = output_dir / "funnel.png"
+            funnel_path = generate_funnel(metrics, fp)
+        except (ImportError, Exception):
+            pass
+
         return AnalysisResult(
             metrics=metrics,
             report=report,
             dashboard_html=dashboard_html,
             output_dir=output_dir,
+            heatmap_path=heatmap_path,
+            funnel_path=funnel_path,
         )
 
     def trending(self) -> str:

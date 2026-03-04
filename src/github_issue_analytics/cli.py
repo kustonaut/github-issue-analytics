@@ -261,5 +261,76 @@ def _build_analyzer(
     return analyzer
 
 
+@cli.command()
+@click.option("--config", "-c", "config_path", type=click.Path(exists=True), help="Path to YAML config.")
+@click.option("--repo", "-r", type=str, help="GitHub repo (owner/name).")
+@click.option("--cached", is_flag=True, default=False, help="Use cached data.")
+@click.option("--output", "-o", type=click.Path(), help="Output PNG/SVG path.")
+@click.option("--open", "open_browser", is_flag=True, default=False, help="Open image after generation.")
+def heatmap(config_path, repo, cached, output, open_browser):
+    """Generate a product-area health heatmap (PNG).
+
+    Renders areas × metrics as a colour-coded grid.
+
+    \b
+    Examples:
+        gia heatmap --config config.yaml
+        gia heatmap --repo owner/repo --cached --open
+    """
+    analyzer = _build_analyzer(config_path, repo, None)
+
+    click.echo(f"🗺️  Generating heatmap for {analyzer.config.repo}...")
+
+    result = analyzer.run(use_cache=cached, save_trend=False)
+
+    if not result.metrics.per_area:
+        click.echo("⚠️  No per-area data — cannot generate heatmap.")
+        return
+
+    from github_issue_analytics.heatmap import save_heatmap
+
+    out_path = output or str(Path(analyzer.config.output_dir) / "heatmap.png")
+    path = save_heatmap(result.metrics, out_path)
+    click.echo(f"✅ Heatmap saved: {path}")
+
+    if open_browser:
+        import webbrowser
+        webbrowser.open(str(Path(path).resolve()))
+
+
+@cli.command()
+@click.option("--config", "-c", "config_path", type=click.Path(exists=True), help="Path to YAML config.")
+@click.option("--repo", "-r", type=str, help="GitHub repo (owner/name).")
+@click.option("--cached", is_flag=True, default=False, help="Use cached data.")
+@click.option("--output", "-o", type=click.Path(), help="Output PNG/SVG path.")
+@click.option("--open", "open_browser", is_flag=True, default=False, help="Open image after generation.")
+def funnel(config_path, repo, cached, output, open_browser):
+    """Generate an issue lifecycle funnel chart (PNG).
+
+    Shows INTAKE → TRIAGE → ACTIVE → CLOSING stages with
+    colour-coded health indicators.
+
+    \b
+    Examples:
+        gia funnel --config config.yaml
+        gia funnel --repo owner/repo --cached --open
+    """
+    analyzer = _build_analyzer(config_path, repo, None)
+
+    click.echo(f"🔽 Generating funnel for {analyzer.config.repo}...")
+
+    result = analyzer.run(use_cache=cached, save_trend=False)
+
+    from github_issue_analytics.funnel import save_funnel
+
+    out_path = output or str(Path(analyzer.config.output_dir) / "funnel.png")
+    path = save_funnel(result.metrics, out_path)
+    click.echo(f"✅ Funnel saved: {path}")
+
+    if open_browser:
+        import webbrowser
+        webbrowser.open(str(Path(path).resolve()))
+
+
 if __name__ == "__main__":
     cli()
