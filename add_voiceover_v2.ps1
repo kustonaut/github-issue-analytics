@@ -25,23 +25,23 @@ if (-not $VideoPath) {
     }
 }
 
-# ── Voiceover script (v0.2.0 — timed to ~45s recording) ───────────
+# ── Voiceover script (v0.2.0 — timed to ~40s recording) ───────────
 $NarrationText = @"
 GitHub Issue Analytics, version 0.2.
 
-Paste any public repository and get a full issue health dashboard in seconds, entirely in your browser.
+Open the page and the dashboard loads instantly, no waiting. Pre-computed metrics for Flask render in under a second.
 
-Let's analyze Flask. The tool fetches all issues from the GitHub API and computes 13 metrics in real time.
+Here's the System Health Score. One number from 0 to 100 that combines resolution rate, median age, and stale ratio. The animated gauge shows 42, fair health.
 
-Here's the System Health Score. One number from 0 to 100 that combines resolution rate, median age, and stale ratio.
+New in version 0.2: the Lifecycle Funnel. Trapezoid segments show four stages, Intake, Triage, Active, and Closing, with drop-off counts between each. That shape tells the story at a glance.
 
-New in version 0.2: the Lifecycle Funnel. Four stages, Intake, Triage, Active, and Closing, with drop-off percentages between each. That gap between Triage and Active? That's your bottleneck.
+The classic funnel uses the same visual language for the filing-to-resolution flow.
 
-The classic funnel shows the filing-to-resolution flow. Label distribution and backlog age reveal what's piling up.
+Label distribution is now a Chart.js doughnut chart. Backlog age uses gradient bar charts. Both interactive, both dark-themed.
 
-The enhanced heatmap now uses green, amber, and red severity coloring across 7 metrics per area. Instantly spot which labels are healthy and which need action.
+The enhanced heatmap uses green, amber, and red severity coloring across 7 metrics per area. Click any row to highlight it.
 
-Time series sparklines and KPI cards give you the trend at a glance.
+Filing trend sparklines, now powered by Chart.js, show 12 months of filing velocity with area fills and peak annotations.
 
 GitHub Issue Analytics. pip install github-issue-analytics with the viz extra. One config file. Full dashboard. Try it live.
 "@
@@ -124,21 +124,27 @@ if (-not $ffmpeg) {
 
 $ffmpegExe = if ($ffmpeg -is [string]) { $ffmpeg } else { $ffmpeg.Source }
 
+$savedEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
 & $ffmpegExe -y -i $WavPath -codec:a libmp3lame -qscale:a 4 $Mp3Path 2>&1 | Out-Null
+$ErrorActionPreference = $savedEAP
+if (-not (Test-Path $Mp3Path)) { Write-Error "MP3 conversion failed"; exit 1 }
 Write-Host "  MP3 saved: $Mp3Path"
 
 # ── Step 3: Merge video + audio ───────────────────────────────────
 Write-Host "`n[3/3] Merging video + voiceover..." -ForegroundColor Cyan
 
 # Get video duration
+$savedEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
 $videoDuration = & $ffmpegExe -i $VideoPath 2>&1 | Select-String "Duration" | ForEach-Object {
     if ($_ -match "Duration:\s*(\d+):(\d+):(\d+)\.(\d+)") {
         [int]$Matches[1]*3600 + [int]$Matches[2]*60 + [int]$Matches[3] + [int]$Matches[4]/100
     }
 }
+$ErrorActionPreference = $savedEAP
 Write-Host "  Video duration: ${videoDuration}s"
 
 # Merge: video + audio, use shortest stream
+$savedEAP = $ErrorActionPreference; $ErrorActionPreference = "SilentlyContinue"
 & $ffmpegExe -y `
     -i $VideoPath `
     -i $Mp3Path `
@@ -147,6 +153,7 @@ Write-Host "  Video duration: ${videoDuration}s"
     -shortest `
     -movflags +faststart `
     $OutputPath 2>&1 | Out-Null
+$ErrorActionPreference = $savedEAP
 
 if (Test-Path $OutputPath) {
     $size = (Get-Item $OutputPath).Length / 1MB

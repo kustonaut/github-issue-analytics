@@ -1,7 +1,7 @@
 """
 Playwright demo recorder for GitHub Issue Analytics v0.2.0.
-Records a 45-second browser walkthrough of the v2-demo.html page,
-then outputs demo-video-v2.mp4.
+Records a ~40-second browser walkthrough of the v2-demo.html page.
+The page auto-loads demo data with Chart.js charts — no fetch needed.
 
 Usage:
     python record_demo_v2.py [--headed]
@@ -20,14 +20,11 @@ SCRIPT_DIR = Path(__file__).parent
 DEMO_HTML = SCRIPT_DIR / "docs" / "v2-demo.html"
 OUTPUT_VIDEO = SCRIPT_DIR / "demo-video-v2.mp4"
 
-# Demo repo to analyze (small enough to load fast, big enough to show data)
-DEMO_REPO = "pallets/flask"
-
 HEADED = "--headed" in sys.argv
 
 
 async def main():
-    print(f"[1/5] Launching browser ({'headed' if HEADED else 'headless'})...")
+    print(f"[1/4] Launching browser ({'headed' if HEADED else 'headless'})...")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not HEADED)
         context = await browser.new_context(
@@ -37,58 +34,35 @@ async def main():
         )
         page = await context.new_page()
 
-        # ── Scene 1: Open demo page ──
-        print("[2/5] Opening v0.2.0 demo page...")
+        # ── Scene 1: Open demo page (auto-loads Chart.js dashboard) ──
+        print("[2/4] Opening v0.2.0 demo page (auto-loads demo data)...")
         demo_url = DEMO_HTML.as_uri()
         await page.goto(demo_url)
         await page.wait_for_load_state("networkidle")
-        await asyncio.sleep(2)  # Show the hero + What's New banner
+        await asyncio.sleep(3)  # Let hero animations + Chart.js render complete
 
-        # ── Scene 2: Type repo and analyze ──
-        print(f"[3/5] Analyzing {DEMO_REPO}...")
-        repo_input = page.locator("#repoInput")
-        await repo_input.click()
-        await asyncio.sleep(0.5)
+        # ── Scene 2: Scroll through dashboard sections ──
+        print("[3/4] Scrolling through dashboard sections...")
 
-        # Type with realistic speed
-        for char in DEMO_REPO:
-            await repo_input.type(char, delay=80)
-        await asyncio.sleep(0.5)
-
-        # Click Analyze
-        await page.locator("#analyzeBtn").click()
-        await asyncio.sleep(1)
-
-        # Wait for dashboard to appear (max 60s)
-        print("[3/5] Waiting for analysis to complete...")
-        try:
-            await page.locator("#dashboard").wait_for(state="visible", timeout=60000)
-        except Exception:
-            print("  WARNING: Dashboard didn't appear in 60s, continuing...")
-        await asyncio.sleep(2)
-
-        # ── Scene 3: Scroll through dashboard sections ──
-        print("[4/5] Scrolling through dashboard sections...")
-
-        # SHS Gauge
+        # SHS Gauge (animated arc fill)
         await page.locator("#shsSection").scroll_into_view_if_needed()
-        await asyncio.sleep(2)
+        await asyncio.sleep(2.5)
 
-        # Lifecycle Funnel (NEW)
+        # Lifecycle Funnel (trapezoid segments with reveal animation)
         await page.locator("#lifecycleSection").scroll_into_view_if_needed()
         await asyncio.sleep(2.5)
 
-        # Classic Funnel
+        # Classic Funnel (trapezoid segments)
         await page.locator("#funnelSection").scroll_into_view_if_needed()
-        await asyncio.sleep(1.5)
-
-        # Donut + Age
-        await page.locator("#donutSection").scroll_into_view_if_needed()
         await asyncio.sleep(2)
 
-        # Heatmap (Enhanced)
-        await page.locator("#heatmapSection").scroll_into_view_if_needed()
+        # Donut (Chart.js doughnut) + Age (Chart.js bar) — side by side
+        await page.locator("#donutSection").scroll_into_view_if_needed()
         await asyncio.sleep(2.5)
+
+        # Heatmap (severity-colored table)
+        await page.locator("#heatmapSection").scroll_into_view_if_needed()
+        await asyncio.sleep(2)
 
         # Click first heatmap row to show active state
         rows = page.locator(".heatmap-row")
@@ -96,26 +70,26 @@ async def main():
             await rows.first.click()
             await asyncio.sleep(1)
 
-        # Sparkline
+        # Sparkline (Chart.js line chart with area fill)
         await page.locator("#sparkSection").scroll_into_view_if_needed()
         await asyncio.sleep(2)
 
-        # KPIs
+        # KPIs (card grid)
         await page.locator("#kpiGrid").scroll_into_view_if_needed()
         await asyncio.sleep(2)
 
-        # Features grid
+        # Features grid (if present)
         features = page.locator(".features-grid")
         if await features.count() > 0:
             await features.scroll_into_view_if_needed()
             await asyncio.sleep(2)
 
-        # ── Scene 4: Scroll back to top ──
+        # ── Scene 3: Scroll back to top ──
         await page.evaluate("window.scrollTo({top:0, behavior:'smooth'})")
         await asyncio.sleep(2)
 
         # ── Done: Save video ──
-        print("[5/5] Saving video...")
+        print("[4/4] Saving video...")
         await context.close()
         await browser.close()
 
