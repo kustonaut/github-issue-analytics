@@ -43,25 +43,89 @@ a:hover { text-decoration: underline; }
     position: relative;
     overflow: hidden;
 }
+/* Animated gradient sweep */
 .hero::before {
     content: '';
-    position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(88,166,255,0.06) 0%, transparent 70%);
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 50%, rgba(88,166,255,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 30%, rgba(63,185,80,0.10) 0%, transparent 40%),
+                radial-gradient(ellipse at 50% 80%, rgba(163,113,247,0.10) 0%, transparent 50%);
     pointer-events: none;
+    animation: heroSweep 8s ease-in-out infinite alternate;
 }
-.hero h1 { font-size: 2.6em; font-weight: 800; margin: 0 0 6px; position: relative; }
+/* Floating orb 1 */
+.hero::after {
+    content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(57,210,192,0.15) 0%, transparent 70%);
+    top: -60px; right: -80px; pointer-events: none;
+    animation: orbFloat1 6s ease-in-out infinite alternate;
+}
+@keyframes heroSweep {
+    0% { transform: translate(0,0) rotate(0deg); }
+    100% { transform: translate(3%,-3%) rotate(2deg); }
+}
+@keyframes orbFloat1 {
+    0% { transform: translate(0,0) scale(1); opacity: 0.7; }
+    100% { transform: translate(-40px,50px) scale(1.2); opacity: 1; }
+}
+@keyframes orbFloat2 {
+    0% { transform: translate(0,0) scale(1); opacity: 0.5; }
+    100% { transform: translate(30px,-40px) scale(1.15); opacity: 0.9; }
+}
+@keyframes shimmer {
+    0% { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+@keyframes fadeSlideUp {
+    0% { opacity: 0; transform: translateY(18px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes gridPulse {
+    0%,100% { opacity: 0.03; }
+    50% { opacity: 0.08; }
+}
+/* Floating orb 2 */
+.hero-orb {
+    position: absolute; width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(163,113,247,0.12) 0%, transparent 70%);
+    bottom: -40px; left: -60px; pointer-events: none;
+    animation: orbFloat2 7s ease-in-out infinite alternate;
+}
+/* Animated grid lines */
+.hero-grid {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+    background-image:
+        linear-gradient(rgba(57,210,192,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57,210,192,0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridPulse 4s ease-in-out infinite;
+}
+/* Shimmering gradient title */
+.hero h1 {
+    font-size: 2.6em; font-weight: 800; margin: 0 0 6px; position: relative;
+    background: linear-gradient(90deg, var(--accent), var(--cyan), var(--purple), var(--accent));
+    background-size: 300% auto;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 6s linear infinite;
+}
 .hero .subtitle {
     color: var(--text-muted); font-size: 1.08em; margin: 0 0 16px;
     max-width: 600px; display: inline-block;
+    animation: fadeSlideUp 0.8s ease-out 0.2s both;
 }
-.badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 22px; }
+.badges {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 22px;
+    animation: fadeSlideUp 0.8s ease-out 0.4s both;
+}
 .badge {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 4px 12px; border-radius: 20px;
     font-size: 0.82em; font-weight: 600;
     background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    transition: all 0.3s;
 }
+.badge:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(88,166,255,0.15); }
 .badge.accent { background: rgba(88,166,255,0.12); border-color: rgba(88,166,255,0.3); color: var(--accent); }
 .badge.green { background: rgba(63,185,80,0.12); border-color: rgba(63,185,80,0.3); color: var(--green); }
 .badge.purple { background: rgba(163,113,247,0.12); border-color: rgba(163,113,247,0.3); color: var(--purple); }
@@ -419,6 +483,8 @@ a:hover { text-decoration: underline; }
 
 <!-- ═══ HERO ═══ -->
 <div class="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-orb"></div>
     <h1>&#x1F4CA; GitHub Issue Analytics</h1>
     <p class="subtitle">Enter any public GitHub repo. Get instant issue intelligence &mdash;<br>
     lifecycle funnels, area heatmaps, gauges, and 13-metric scorecard.</p>
@@ -689,7 +755,9 @@ async function fetchIssues(owner, repo, token) {
         const issues = data.filter(i => !i.pull_request);
         allIssues = allIssues.concat(issues);
 
-        const pct = Math.min(95, page / (data.length < 100 ? page : maxPages) * 100);
+        // Progress — fast-forward style: jump aggressively
+        const pct = Math.min(95, (page / Math.min(maxPages, page + 2)) * 100);
+        $('progressBar').style.transition = 'width 0.15s';
         $('progressBar').style.width = pct + '%';
         $('progressText').innerHTML = `<span class="spinner"></span>Fetched <strong>${allIssues.length}</strong> issues (page ${page})...`;
 
@@ -861,6 +929,70 @@ function computeMetrics(issues) {
         areas, ageDist, monthly, statuses, funnel, lifecycle
     };
 }
+
+// ── DEMO DATA (static — renders instantly on page load) ──────
+const DEMO_METRICS = {
+    total: 6224, openCount: 2341, closedCount: 3883,
+    medianAgeDays: 487, fixRate: 62.4, escalationRate: 8.7,
+    noResponseRate: 14.2, staleCount: 812, untriagedRate: 31.6, dsatScore: 284, shs: 42,
+    areas: [
+        {name:'bug', total:1842, bugs:1842, regressions:67, ageDays:657, ageLabel:'1.8yr', fix_rate:58.3, stale:312, dsat:89},
+        {name:'enhancement', total:1456, bugs:0, regressions:0, ageDays:766, ageLabel:'2.1yr', fix_rate:41.2, stale:287, dsat:42},
+        {name:'documentation', total:389, bugs:0, regressions:0, ageDays:329, ageLabel:'0.9yr', fix_rate:72.8, stale:48, dsat:12},
+        {name:'security', total:124, bugs:98, regressions:14, ageDays:146, ageLabel:'0.4yr', fix_rate:87.1, stale:8, dsat:31},
+        {name:'performance', total:267, bugs:201, regressions:23, ageDays:511, ageLabel:'1.4yr', fix_rate:53.6, stale:67, dsat:45},
+        {name:'api', total:512, bugs:156, regressions:11, ageDays:584, ageLabel:'1.6yr', fix_rate:48.9, stale:134, dsat:38},
+        {name:'testing', total:198, bugs:42, regressions:5, ageDays:402, ageLabel:'1.1yr', fix_rate:66.2, stale:29, dsat:14},
+        {name:'ux', total:341, bugs:87, regressions:3, ageDays:475, ageLabel:'1.3yr', fix_rate:55.7, stale:72, dsat:28},
+    ],
+    ageDist: [
+        {label:'0-7d', count:143}, {label:'7-30d', count:287}, {label:'30-90d', count:412},
+        {label:'90-180d', count:356}, {label:'180d-1yr', count:489}, {label:'1-2yr', count:384},
+        {label:'2-3yr', count:178}, {label:'>3yr', count:92},
+    ],
+    monthly: [
+        {label:'Apr', count:87}, {label:'May', count:112}, {label:'Jun', count:98},
+        {label:'Jul', count:134}, {label:'Aug', count:121}, {label:'Sep', count:156},
+        {label:'Oct', count:143}, {label:'Nov', count:109}, {label:'Dec', count:78},
+        {label:'Jan', count:167}, {label:'Feb', count:142}, {label:'Mar', count:128},
+    ],
+    statuses: [
+        {name:'untriaged', count:740, color:'#f85149'},
+        {name:'triaged', count:612, color:'#3fb950'},
+        {name:'labeled', count:534, color:'#a371f7'},
+        {name:'needs_info', count:298, color:'#d29922'},
+        {name:'in_progress', count:157, color:'#58a6ff'},
+    ],
+    funnel: [
+        {label:'Total Filed', count:6224, desc:'All issues in repo', color:'#58a6ff'},
+        {label:'Labeled', count:4892, desc:'Issues with at least one label', color:'#a371f7'},
+        {label:'Triaged', count:2847, desc:'Has triage/priority label', color:'#3fb950'},
+        {label:'In Progress', count:157, desc:'Actively being worked on', color:'#d29922'},
+        {label:'Closed', count:3883, desc:'Resolved or closed', color:'#238636'},
+    ],
+    lifecycle: [
+        {stage:'INTAKE',  label:'Intake',  icon:'&#x1F4E5;', count:6224, desc:'All issues ever filed',          color:'#f85149'},
+        {stage:'TRIAGE',  label:'Triage',  icon:'&#x1F50D;', count:2184, desc:'Open issues awaiting or completed triage', color:'#d29922'},
+        {stage:'ACTIVE',  label:'Active',  icon:'&#x2699;',  count:157,  desc:'Issues actively being worked',   color:'#f85149'},
+        {stage:'CLOSING', label:'Closing', icon:'&#x2705;',  count:3883, desc:'Resolved and closed issues',     color:'#3fb950'},
+    ],
+};
+const DEMO_REPO = 'pallets/flask';
+
+// ── Demo Banner CSS ──
+const demoBannerStyle = document.createElement('style');
+demoBannerStyle.textContent = `
+.demo-banner {
+    background:linear-gradient(135deg, rgba(88,166,255,0.12), rgba(57,210,192,0.12));
+    border:1px solid rgba(57,210,192,0.25); border-radius:var(--radius);
+    padding:12px 20px; margin:0 auto 18px; max-width:720px;
+    text-align:center; font-size:0.9em; color:var(--text-muted);
+    animation: fadeSlideUp 0.5s ease-out both;
+}
+.demo-banner strong { color:var(--cyan); }
+.demo-banner a { color:var(--green); cursor:pointer; font-weight:600; }
+`;
+document.head.appendChild(demoBannerStyle);
 
 // ── Render Engine ────────────────────────────────
 
@@ -1171,6 +1303,9 @@ function bindInteractions() {
 async function startAnalysis(event) {
     if (event) event.preventDefault();
     hideError();
+    // Remove demo banner if present
+    const db = document.getElementById('demoBanner');
+    if (db) db.remove();
     const raw = $('repoInput').value.trim();
     if (!raw) return false;
 
@@ -1216,12 +1351,28 @@ async function startAnalysis(event) {
 }
 
 // ── URL param support ────────────────────────────
+// ── Auto-load demo data on page open ─────────────
 window.addEventListener('load', () => {
     const params = new URLSearchParams(window.location.search);
     const repo = params.get('repo');
     if (repo) {
         $('repoInput').value = repo;
         startAnalysis(new Event('submit'));
+    } else {
+        // Show pre-computed demo dashboard instantly
+        currentRepo = DEMO_REPO;
+        $('repoInput').value = DEMO_REPO;
+
+        // Insert demo banner above dashboard
+        const banner = document.createElement('div');
+        banner.className = 'demo-banner';
+        banner.id = 'demoBanner';
+        banner.innerHTML = `📊 Showing <strong>demo data</strong> for <strong>${DEMO_REPO}</strong> — enter any repo above for live analysis or <a onclick="document.getElementById('demoBanner').remove()">dismiss</a>`;
+        const dashEl = $('dashboard');
+        dashEl.parentNode.insertBefore(banner, dashEl);
+
+        renderDashboard(DEMO_METRICS);
+        $('dashboard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 });
 </script>
