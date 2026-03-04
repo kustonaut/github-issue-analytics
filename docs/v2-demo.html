@@ -6,6 +6,7 @@
 <title>GitHub Issue Analytics v0.2.0 — Heatmaps, Funnels &amp; 13 Metrics</title>
 <meta name="description" content="Analyze any GitHub repo: lifecycle funnels, area heatmaps, health score, and 13 metrics. 100% client-side. Open source.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 /* ── DESIGN TOKENS ────────────────────────────────── */
 :root {
@@ -295,99 +296,44 @@ a:hover { text-decoration: underline; }
     color: var(--cyan);
 }
 
-/* ── LIFECYCLE FUNNEL (v0.2.0) ────────────────────── */
-.lifecycle-funnel { display: flex; flex-direction: column; gap: 2px; }
-.lifecycle-stage {
-    display: grid; grid-template-columns: 110px 1fr 70px;
-    align-items: center; gap: 10px; padding: 8px 0;
-    opacity: 0; animation: slideInRight 0.4s ease-out forwards;
+/* ── FUNNEL CHART (trapezoid) ─────────────────────── */
+.funnel-chart {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 0;
 }
-.lifecycle-stage:nth-child(1) { animation-delay: 0s; }
-.lifecycle-stage:nth-child(2) { animation-delay: 0.1s; }
-.lifecycle-stage:nth-child(3) { animation-delay: 0.2s; }
-.lifecycle-stage:nth-child(4) { animation-delay: 0.3s; }
-@keyframes slideInRight { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
-.lifecycle-label {
-    font-size: 0.85em; font-weight: 600; display: flex; align-items: center; gap: 6px;
+.funnel-segment {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 48px; min-width: 100px;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 10px 100%);
+    color: #fff; font-weight: 600; font-size: 0.88em;
+    opacity: 0; animation: funnelReveal 0.5s ease-out forwards;
+    transition: filter 0.2s; cursor: default;
 }
-.lifecycle-icon {
-    width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-    font-size: 0.75em; font-weight: 700; color: #fff;
+.funnel-segment:hover { filter: brightness(1.25); }
+.funnel-segment:nth-child(1) { animation-delay: 0s; }
+.funnel-segment:nth-child(2) { animation-delay: 0.1s; }
+.funnel-segment:nth-child(3) { animation-delay: 0.15s; }
+.funnel-segment:nth-child(4) { animation-delay: 0.2s; }
+.funnel-segment:nth-child(5) { animation-delay: 0.25s; }
+.funnel-segment:nth-child(6) { animation-delay: 0.3s; }
+@keyframes funnelReveal {
+    from { opacity: 0; transform: scaleX(0.6); }
+    to { opacity: 1; transform: scaleX(1); }
 }
-.lifecycle-bar-track {
-    height: 28px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden;
-    position: relative;
+.funnel-segment-label { white-space: nowrap; font-size: 0.92em; }
+.funnel-segment-value { font-size: 1.15em; font-weight: 800; }
+.funnel-segment-pct { font-size: 0.82em; opacity: 0.85; min-width: 44px; text-align: right; }
+.funnel-drop {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 0.75em; color: var(--text-muted); opacity: 0.7; padding: 1px 0;
 }
-.lifecycle-bar {
-    height: 100%; border-radius: 6px; min-width: 24px;
-    display: flex; align-items: center; padding: 0 10px;
-    transition: width 0.6s ease-out;
-}
-.lifecycle-count { font-size: 0.82em; font-weight: 700; color: #fff; white-space: nowrap; }
-.lifecycle-pct { font-size: 0.82em; color: var(--text-muted); text-align: right; font-weight: 600; }
-.lifecycle-drop {
-    display: flex; align-items: center; gap: 4px; padding: 2px 0 2px 32px;
-    font-size: 0.75em; color: var(--text-muted); opacity: 0.7;
-}
-.lifecycle-drop .arrow { color: var(--orange); }
-
-/* ── CLASSIC FUNNEL (kept from v0.1) ──────────────── */
-.funnel-stage {
-    display: grid; grid-template-columns: 100px 1fr 50px;
-    align-items: center; gap: 8px; padding: 6px 0;
-    opacity: 0; animation: slideInRight 0.4s ease-out forwards;
-}
-.funnel-stage:nth-child(1) { animation-delay: 0s; }
-.funnel-stage:nth-child(2) { animation-delay: 0.12s; }
-.funnel-stage:nth-child(3) { animation-delay: 0.24s; }
-.funnel-stage:nth-child(4) { animation-delay: 0.36s; }
-.funnel-stage:nth-child(5) { animation-delay: 0.48s; }
-.funnel-label { font-size: 0.85em; color: var(--text-muted); font-weight: 600; }
-.funnel-bar-track { height: 24px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden; }
-.funnel-bar {
-    height: 100%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px;
-    min-width: 20px; transition: width 0.6s ease-out;
-}
-.funnel-count { font-size: 0.82em; font-weight: 700; color: #fff; }
-.funnel-pct { font-size: 0.82em; color: var(--text-muted); text-align: right; }
+.funnel-drop .arrow { color: var(--orange); }
 
 /* ── TWO-COL ──────────────────────────────────────── */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 
-/* ── DONUT ────────────────────────────────────────── */
-.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.donut-container { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
-.donut-svg { width: 100%; height: 100%; }
-.donut-seg { transition: opacity 0.2s; cursor: pointer; }
-.donut-seg:hover { opacity: 0.7; }
-.donut-center {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    text-align: center;
-}
-.donut-center .big { font-size: 1.4em; font-weight: 700; }
-.donut-center .small { font-size: 0.72em; color: var(--text-muted); }
-.legend { display: flex; flex-direction: column; gap: 4px; }
-.legend-item { font-size: 0.82em; display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.legend-val { font-weight: 600; color: var(--text); }
-
-/* ── AGE BAR CHART ────────────────────────────────── */
-.age-chart { display: flex; gap: 4px; align-items: flex-end; height: 120px; }
-.age-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
-.age-bar-wrap { width: 100%; flex: 1; display: flex; align-items: flex-end; }
-.age-bar {
-    width: 100%; border-radius: 4px 4px 0 0;
-    background: linear-gradient(to top, var(--accent), var(--purple));
-    min-height: 2px; transition: height 0.4s ease-out;
-}
-.age-label { font-size: 0.62em; color: var(--text-muted); margin-top: 4px; white-space: nowrap; }
-.age-count { font-size: 0.7em; color: var(--text); font-weight: 600; }
-
-/* ── SPARKLINE ────────────────────────────────────── */
-.sparkline-wrap { overflow-x: auto; }
-.spark-line { fill: none; stroke: var(--accent); stroke-width: 2; }
-.spark-val { font-size: 7px; font-weight: 700; text-anchor: middle; }
-.spark-month { font-size: 5.5px; fill: var(--text-muted); text-anchor: middle; }
+/* ── CHART CONTAINERS (Chart.js) ──────────────────── */
+.chart-container { position: relative; width: 100%; }
+.chart-container canvas { width: 100% !important; }
 
 /* ── ENHANCED HEATMAP (v0.2.0) ────────────────────── */
 .heatmap-grid { overflow-x: auto; }
@@ -666,6 +612,14 @@ a:hover { text-decoration: underline; }
 // ── State ────────────────────────────────────────
 let allIssues = [];
 let currentRepo = '';
+let chartInstances = {};
+
+// ── Chart.js dark theme defaults ─────────────────
+if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = 'rgba(48,54,61,0.4)';
+    Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+}
 
 // ── Helpers ──────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -997,6 +951,10 @@ document.head.appendChild(demoBannerStyle);
 // ── Render Engine ────────────────────────────────
 
 function renderDashboard(m) {
+    // Destroy previous Chart.js instances
+    Object.values(chartInstances).forEach(c => { if (c && c.destroy) c.destroy(); });
+    chartInstances = {};
+
     $('dashboard').style.display = 'block';
     renderRepoHeader(m);
     renderGauge(m);
@@ -1044,32 +1002,24 @@ function renderGauge(m) {
     setTimeout(() => animateGauge(m.shs), 200);
 }
 
-// ── NEW: Lifecycle Funnel (v0.2.0) ───────────────
+// ── Lifecycle Funnel (trapezoid) ─────────────────
 function renderLifecycleFunnel(m) {
     const maxCount = m.lifecycle[0].count || 1;
-    let html = '<div class="lifecycle-funnel">';
+    let html = '<div class="funnel-chart">';
     m.lifecycle.forEach((stage, i) => {
         const pct = (stage.count / maxCount * 100);
-        const barW = Math.max(pct, 8);
+        const width = Math.max(pct, 18);
         html += `
-        <div class="lifecycle-stage" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues">
-            <div class="lifecycle-label">
-                <div class="lifecycle-icon" style="background:${stage.color}">${stage.icon}</div>
-                ${stage.label}
-            </div>
-            <div class="lifecycle-bar-track">
-                <div class="lifecycle-bar" style="width:${barW}%;background:${stage.color}">
-                    <span class="lifecycle-count">${stage.count.toLocaleString()}</span>
-                </div>
-            </div>
-            <div class="lifecycle-pct">${pct.toFixed(0)}%</div>
+        <div class="funnel-segment" style="width:${width}%;background:${stage.color}" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues">
+            <span class="funnel-segment-label">${stage.icon} ${stage.label}</span>
+            <span class="funnel-segment-value">${stage.count.toLocaleString()}</span>
+            <span class="funnel-segment-pct">${pct.toFixed(0)}%</span>
         </div>`;
-        // Drop-off indicator between stages
         if (i < m.lifecycle.length - 1) {
             const next = m.lifecycle[i+1];
             const drop = stage.count > 0 ? ((stage.count - next.count) / stage.count * 100).toFixed(0) : 0;
             if (drop > 0) {
-                html += `<div class="lifecycle-drop"><span class="arrow">\u2193</span> ${drop}% drop-off</div>`;
+                html += `<div class="funnel-drop"><span class="arrow">\u2193</span> ${drop}% drop-off</div>`;
             }
         }
     });
@@ -1079,21 +1029,18 @@ function renderLifecycleFunnel(m) {
 
 function renderFunnel(m) {
     const maxCount = m.funnel[0].count || 1;
-    let html = '';
+    let html = '<div class="funnel-chart">';
     m.funnel.forEach((stage, i) => {
         const pct = (stage.count / maxCount * 100);
-        const barW = Math.max(pct, 6);
+        const width = Math.max(pct, 18);
         html += `
-        <div class="funnel-stage" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues (${pct.toFixed(0)}%)" style="--delay:${i*0.12}s">
-            <div class="funnel-label">${stage.label}</div>
-            <div class="funnel-bar-track">
-                <div class="funnel-bar" style="width:${barW}%;background:${stage.color}">
-                    <span class="funnel-count">${stage.count.toLocaleString()}</span>
-                </div>
-            </div>
-            <div class="funnel-pct">${pct.toFixed(0)}%</div>
+        <div class="funnel-segment" style="width:${width}%;background:${stage.color}" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues (${pct.toFixed(0)}%)">
+            <span class="funnel-segment-label">${stage.label}</span>
+            <span class="funnel-segment-value">${stage.count.toLocaleString()}</span>
+            <span class="funnel-segment-pct">${pct.toFixed(0)}%</span>
         </div>`;
     });
+    html += '</div>';
     $('funnelBody').innerHTML = html;
 }
 
@@ -1103,36 +1050,103 @@ function renderDonut(m) {
         return;
     }
     const total = m.statuses.reduce((s, x) => s + x.count, 0);
-    const circ = 2 * Math.PI * 40;
-    let offset = 0;
-    let circles = '', legend = '';
-    m.statuses.forEach(s => {
-        const pct = (s.count / total) * 100;
-        const dash = pct / 100 * circ;
-        const gap = circ - dash;
-        circles += `<circle cx="50" cy="50" r="40" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="-${offset.toFixed(1)}" class="donut-seg" data-label="${s.name}" data-count="${s.count}" data-pct="${pct.toFixed(0)}"/>`;
-        legend += `<div class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.name} <span class="legend-val">${s.count} (${pct.toFixed(0)}%)</span></div>`;
-        offset += dash;
+    $('donutBody').innerHTML = '<div class="chart-container" style="max-height:220px"><canvas id="donutChart"></canvas></div>';
+    if (chartInstances.donut) chartInstances.donut.destroy();
+    chartInstances.donut = new Chart(document.getElementById('donutChart'), {
+        type: 'doughnut',
+        data: {
+            labels: m.statuses.map(s => s.name),
+            datasets: [{
+                data: m.statuses.map(s => s.count),
+                backgroundColor: m.statuses.map(s => s.color),
+                borderColor: '#161b22',
+                borderWidth: 2,
+                hoverBorderColor: '#e6edf3',
+                hoverBorderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '62%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: '#8b949e',
+                        font: { size: 11 },
+                        padding: 10,
+                        usePointStyle: true,
+                        pointStyleWidth: 10,
+                    },
+                },
+                tooltip: {
+                    backgroundColor: '#161b22',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${(ctx.parsed/total*100).toFixed(0)}%)`
+                    }
+                }
+            }
+        }
     });
-    $('donutBody').innerHTML = `
-        <div class="donut-wrap">
-            <div class="donut-container">
-                <svg class="donut-svg" viewBox="0 0 100 100">${circles}</svg>
-                <div class="donut-center"><div class="big" id="donutCenter">${total}</div><div class="small" id="donutLabel">open</div></div>
-            </div>
-            <div class="legend">${legend}</div>
-        </div>`;
 }
 
 function renderAge(m) {
-    const maxC = Math.max(...m.ageDist.map(b => b.count), 1);
-    let html = '<div class="age-chart">';
-    m.ageDist.forEach(b => {
-        const h = (b.count / maxC * 100);
-        html += `<div class="age-col" title="${b.label}: ${b.count}"><div class="age-bar-wrap"><div class="age-bar" style="height:${h}%"></div></div><div class="age-label">${b.label}</div><div class="age-count">${b.count}</div></div>`;
+    $('ageBody').innerHTML = '<div class="chart-container"><canvas id="ageChart"></canvas></div>';
+    if (chartInstances.age) chartInstances.age.destroy();
+    const ctx = document.getElementById('ageChart');
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, '#a371f7');
+    gradient.addColorStop(1, '#58a6ff');
+    chartInstances.age = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: m.ageDist.map(b => b.label),
+            datasets: [{
+                data: m.ageDist.map(b => b.count),
+                backgroundColor: gradient,
+                borderRadius: 4,
+                borderSkipped: false,
+                maxBarThickness: 40,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.8,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#161b22',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.y.toLocaleString()} issues`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e', font: { size: 10 } },
+                    grid: { display: false },
+                    border: { display: false },
+                },
+                y: {
+                    ticks: { color: '#8b949e', font: { size: 10 } },
+                    grid: { color: 'rgba(48,54,61,0.4)' },
+                    border: { display: false },
+                },
+            },
+        }
     });
-    html += '</div>';
-    $('ageBody').innerHTML = html;
 }
 
 // ── NEW: Enhanced Heatmap with severity indicators (v0.2.0) ──
@@ -1188,9 +1202,6 @@ function renderSparkline(m) {
         $('sparkBody').innerHTML = '<p style="color:var(--text-muted)">No filing data in the last 12 months.</p>';
         return;
     }
-    const pts = sparkPoints(counts);
-    const maxI = counts.indexOf(Math.max(...counts));
-    const minI = counts.indexOf(Math.min(...counts));
 
     const last3 = counts.slice(-3).reduce((a,b)=>a+b,0) / 3;
     const last6 = counts.slice(-6).reduce((a,b)=>a+b,0) / 6;
@@ -1198,39 +1209,74 @@ function renderSparkline(m) {
                     : last3 < last6 * 0.85 ? '<span style="color:var(--green)">\u2193 decreasing</span>'
                     : '<span style="color:var(--orange)">\u2194\uFE0F flat</span>';
 
-    let dots = '';
-    const mn = Math.min(...counts), mx = Math.max(...counts), rng = mx - mn || 1;
-    const w = 280, h = 60, pad = 4;
-    const step = (w - 2*pad) / (counts.length - 1);
-    [maxI, minI].forEach(idx => {
-        const x = pad + idx * step;
-        const y = h - pad - ((counts[idx]-mn)/rng)*(h-2*pad);
-        const color = idx === maxI ? '#3fb950' : '#f85149';
-        dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}"/>`;
-        dots += `<text x="${x.toFixed(1)}" y="${(y-8).toFixed(1)}" class="spark-val" fill="${color}">${counts[idx]}</text>`;
-    });
-    let monthLabels = '';
-    labels.forEach((l, i) => {
-        monthLabels += `<text x="${(pad + i*step).toFixed(0)}" y="78" class="spark-month">${l}</text>`;
-    });
-
     $('sparkBody').innerHTML = `
         <p style="color:var(--text-muted);margin-bottom:10px;font-size:0.88em">
             3-month avg: <strong>${last3.toFixed(0)}/mo</strong> &middot;
             6-month avg: <strong>${last6.toFixed(0)}/mo</strong> &middot;
             Direction: ${direction}
         </p>
-        <div class="sparkline-wrap">
-            <svg viewBox="0 0 290 84" width="100%" preserveAspectRatio="xMidYMid meet">
-                <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
-                    <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
-                </linearGradient></defs>
-                <polyline points="${pts}" style="fill:url(#sparkGrad);stroke:none"/>
-                <polyline points="${pts}" class="spark-line"/>
-                ${dots} ${monthLabels}
-            </svg>
-        </div>`;
+        <div class="chart-container" style="max-height:220px"><canvas id="sparkChart"></canvas></div>`;
+
+    if (chartInstances.spark) chartInstances.spark.destroy();
+    const ctx = document.getElementById('sparkChart');
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(88,166,255,0.3)');
+    gradient.addColorStop(1, 'rgba(88,166,255,0)');
+    const maxI = counts.indexOf(Math.max(...counts));
+    const minI = counts.indexOf(Math.min(...counts));
+    const pointColors = counts.map((_, i) => i === maxI ? '#3fb950' : i === minI ? '#f85149' : 'transparent');
+    const pointRadii = counts.map((_, i) => (i === maxI || i === minI) ? 6 : 0);
+
+    chartInstances.spark = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                borderColor: '#58a6ff',
+                borderWidth: 2.5,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
+                pointRadius: pointRadii,
+                pointHoverRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#161b22',
+                    borderColor: '#30363d',
+                    borderWidth: 1,
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.y} issues filed`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#8b949e', font: { size: 10 } },
+                    grid: { display: false },
+                    border: { display: false },
+                },
+                y: {
+                    ticks: { color: '#8b949e', font: { size: 10 } },
+                    grid: { color: 'rgba(48,54,61,0.4)' },
+                    border: { display: false },
+                    beginAtZero: true,
+                },
+            },
+        }
+    });
 }
 
 function renderKPIs(m) {
@@ -1268,27 +1314,12 @@ function animateGauge(target) {
 // ── Bind Interactions ────────────────────────────
 function bindInteractions() {
     const tip = $('funnelTip');
-    // Lifecycle funnel tooltips
-    document.querySelectorAll('.lifecycle-stage').forEach(s => {
+    // Funnel segment tooltips (both lifecycle and classic)
+    document.querySelectorAll('.funnel-segment').forEach(s => {
         s.addEventListener('mouseenter', () => { tip.textContent = s.dataset.tooltip; tip.classList.add('show'); });
         s.addEventListener('mousemove', e => { tip.style.left = (e.clientX+12)+'px'; tip.style.top = (e.clientY-30)+'px'; });
         s.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
     });
-    // Classic funnel tooltips
-    document.querySelectorAll('.funnel-stage').forEach(s => {
-        s.addEventListener('mouseenter', () => { tip.textContent = s.dataset.tooltip; tip.classList.add('show'); });
-        s.addEventListener('mousemove', e => { tip.style.left = (e.clientX+12)+'px'; tip.style.top = (e.clientY-30)+'px'; });
-        s.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
-    });
-    // Donut hover
-    const dc = $('donutCenter'), dl = $('donutLabel');
-    if (dc && dl) {
-        const totalOpen = dc.textContent;
-        document.querySelectorAll('.donut-seg').forEach(seg => {
-            seg.addEventListener('mouseenter', () => { dc.textContent = seg.dataset.count; dl.textContent = seg.dataset.label; });
-            seg.addEventListener('mouseleave', () => { dc.textContent = totalOpen; dl.textContent = 'open'; });
-        });
-    }
     // Heatmap click
     document.querySelectorAll('.heatmap-row').forEach(row => {
         row.addEventListener('click', () => {

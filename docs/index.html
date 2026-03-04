@@ -10,6 +10,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://kustonaut.github.io/github-issue-analytics/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
 /* ── DESIGN TOKENS ────────────────────────────────── */
 :root {
@@ -254,21 +255,31 @@ body {
     padding:3px 10px; border-radius:12px; color:var(--text-muted); font-weight:400;
 }
 
-/* ── FUNNEL ───────────────────────────────────────── */
-.funnel-stage {
-    display:grid; grid-template-columns:110px 1fr 60px; align-items:center; gap:12px;
-    margin-bottom:6px; opacity:0; animation:fadeSlideIn 0.5s forwards;
-    animation-delay:var(--delay);
+/* ── FUNNEL (trapezoid segments) ──────────────────── */
+.funnel-chart {
+    display:flex; flex-direction:column; align-items:center; gap:0; padding:8px 0;
 }
-.funnel-label { font-size:0.88em; color:var(--text-muted); text-align:right; white-space:nowrap; }
-.funnel-bar-track { height:34px; background:var(--surface-2); border-radius:6px; overflow:hidden; }
-.funnel-bar {
-    height:100%; border-radius:6px; display:flex; align-items:center;
-    justify-content:center; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); cursor:pointer;
+.funnel-segment {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:10px 18px; color:#fff; font-weight:600; font-size:0.92em;
+    text-shadow:0 1px 3px rgba(0,0,0,0.5); cursor:pointer;
+    clip-path:polygon(0 0, 100% 0, calc(100% - 10px) 100%, 10px 100%);
+    transition:transform 0.25s, filter 0.25s; position:relative;
+    animation:funnelReveal 0.6s ease-out backwards;
 }
-.funnel-bar:hover { filter:brightness(1.2); }
-.funnel-count { font-size:0.82em; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.5); }
-.funnel-pct { font-size:0.82em; color:var(--text-muted); }
+.funnel-segment:first-child { border-radius:8px 8px 0 0; clip-path:polygon(0 0, 100% 0, calc(100% - 10px) 100%, 10px 100%); }
+.funnel-segment:last-child  { border-radius:0 0 6px 6px; }
+.funnel-segment:hover { transform:scaleX(1.04); filter:brightness(1.15); z-index:2; }
+.funnel-segment .seg-label { opacity:0.85; font-weight:400; font-size:0.82em; }
+.funnel-segment .seg-count { font-size:1.1em; }
+.funnel-segment .seg-pct   { opacity:0.7; font-size:0.78em; }
+.funnel-drop {
+    font-size:0.72em; color:var(--text-muted); text-align:center; padding:2px 0; line-height:1;
+}
+@keyframes funnelReveal {
+    from { opacity:0; transform:scaleX(0.5); }
+    to   { opacity:1; transform:scaleX(1); }
+}
 .funnel-tooltip {
     position:fixed; background:#1c2333; border:1px solid var(--border);
     padding:8px 14px; border-radius:8px; font-size:0.85em; color:var(--text);
@@ -281,37 +292,8 @@ body {
 .two-col { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
 @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
 
-/* ── DONUT ─────────────────────────────────────────── */
-.donut-wrap { display:flex; align-items:center; justify-content:center; gap:28px; flex-wrap:wrap; }
-.donut-svg { width:150px; height:150px; transform:rotate(-90deg); }
-.donut-seg { transition:opacity 0.2s; cursor:pointer; }
-.donut-seg:hover { opacity:0.7; }
-.donut-container { position:relative; width:150px; height:150px; }
-.donut-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
-.donut-center .big { font-size:1.5em; font-weight:700; }
-.donut-center .small { font-size:0.72em; color:var(--text-muted); }
-.legend { display:flex; flex-direction:column; gap:6px; }
-.legend-item { display:flex; align-items:center; gap:8px; font-size:0.85em; }
-.legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.legend-val { color:var(--text-muted); margin-left:auto; }
-
-/* ── AGE BARS ─────────────────────────────────────── */
-.age-chart { display:flex; align-items:flex-end; justify-content:space-around; height:150px; gap:4px; padding:0 4px; }
-.age-col { display:flex; flex-direction:column; align-items:center; flex:1; cursor:pointer; }
-.age-bar-wrap { width:100%; height:115px; display:flex; align-items:flex-end; justify-content:center; }
-.age-bar {
-    width:80%; max-width:44px; background:linear-gradient(to top,var(--accent),var(--purple));
-    border-radius:4px 4px 0 0; transition:all 0.4s; min-height:2px;
-}
-.age-col:hover .age-bar { filter:brightness(1.3); }
-.age-label { font-size:0.68em; color:var(--text-muted); margin-top:4px; white-space:nowrap; }
-.age-count { font-size:0.72em; color:var(--text); font-weight:600; margin-top:1px; }
-
-/* ── SPARKLINE ─────────────────────────────────────── */
-.sparkline-wrap { padding:6px 0; }
-.spark-line { fill:none; stroke:var(--accent); stroke-width:2; }
-.spark-month { font-size:9px; fill:var(--text-muted); text-anchor:middle; }
-.spark-val { font-size:10px; text-anchor:middle; font-weight:600; }
+/* ── CHART CONTAINERS ──────────────────────────────── */
+.chart-container { position:relative; width:100%; }
 
 /* ── HEATMAP ──────────────────────────────────────── */
 .heatmap-table { width:100%; border-collapse:collapse; }
@@ -500,6 +482,12 @@ body {
 // ── State ────────────────────────────────────────
 let allIssues = [];
 let currentRepo = '';
+let chartInstances = {};
+
+// ── Chart.js dark-theme defaults ─────────────────
+Chart.defaults.color = '#8b949e';
+Chart.defaults.borderColor = 'rgba(48,54,61,0.4)';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
 
 // ── Helpers ──────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -522,11 +510,6 @@ function heatColor(val, lo, hi) {
     const t2 = (t-0.5)*2;
     const r = Math.round(210 + (248-210)*t2), g = Math.round(153 + (81-153)*t2), b = Math.round(34 + (73-34)*t2);
     return `rgb(${r},${g},${b})`;
-}
-function sparkPoints(data, w=280, h=60, pad=4) {
-    const mn = Math.min(...data), mx = Math.max(...data), rng = mx - mn || 1;
-    const step = (w - 2*pad) / (data.length - 1);
-    return data.map((v, i) => `${(pad + i*step).toFixed(1)},${(h - pad - ((v-mn)/rng)*(h-2*pad)).toFixed(1)}`).join(' ');
 }
 
 // ── UI Helpers ───────────────────────────────────
@@ -789,6 +772,9 @@ document.head.appendChild(demoBannerStyle);
 // ── Render Engine ────────────────────────────────
 
 function renderDashboard(m) {
+    // Destroy previous Chart.js instances
+    Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(_){} });
+    chartInstances = {};
     $('dashboard').style.display = 'block';
     renderRepoHeader(m);
     renderGauge(m);
@@ -838,21 +824,22 @@ function renderGauge(m) {
 
 function renderFunnel(m) {
     const maxCount = m.funnel[0].count || 1;
-    let html = '';
+    let html = '<div class="funnel-chart">';
     m.funnel.forEach((stage, i) => {
         const pct = (stage.count / maxCount * 100);
-        const barW = Math.max(pct, 6);
-        html += `
-        <div class="funnel-stage" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues (${pct.toFixed(0)}%)" style="--delay:${i*0.12}s">
-            <div class="funnel-label">${stage.label}</div>
-            <div class="funnel-bar-track">
-                <div class="funnel-bar" style="width:${barW}%;background:${stage.color}">
-                    <span class="funnel-count">${stage.count.toLocaleString()}</span>
-                </div>
-            </div>
-            <div class="funnel-pct">${pct.toFixed(0)}%</div>
+        const widthPct = Math.max(pct, 18);
+        html += `<div class="funnel-segment" style="width:${widthPct}%;background:${stage.color};animation-delay:${i*0.1}s"
+            data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues (${pct.toFixed(0)}%)">
+            <span class="seg-label">${stage.label}</span>
+            <span class="seg-count">${stage.count.toLocaleString()}</span>
+            <span class="seg-pct">${pct.toFixed(0)}%</span>
         </div>`;
+        if (i < m.funnel.length - 1) {
+            const drop = stage.count - m.funnel[i+1].count;
+            if (drop > 0) html += `<div class="funnel-drop">\u25BE ${drop.toLocaleString()} drop-off</div>`;
+        }
     });
+    html += '</div>';
     $('funnelBody').innerHTML = html;
 }
 
@@ -861,37 +848,76 @@ function renderDonut(m) {
         $('donutBody').innerHTML = '<p style="color:var(--text-muted)">No open issues to classify.</p>';
         return;
     }
-    const total = m.statuses.reduce((s, x) => s + x.count, 0);
-    const circ = 2 * Math.PI * 40; // ~251.327
-    let offset = 0;
-    let circles = '', legend = '';
-    m.statuses.forEach(s => {
-        const pct = (s.count / total) * 100;
-        const dash = pct / 100 * circ;
-        const gap = circ - dash;
-        circles += `<circle cx="50" cy="50" r="40" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="-${offset.toFixed(1)}" class="donut-seg" data-label="${s.name}" data-count="${s.count}" data-pct="${pct.toFixed(0)}"/>`;
-        legend += `<div class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.name} <span class="legend-val">${s.count} (${pct.toFixed(0)}%)</span></div>`;
-        offset += dash;
+    $('donutBody').innerHTML = '<div class="chart-container"><canvas id="donutCanvas"></canvas></div>';
+    const ctx = document.getElementById('donutCanvas').getContext('2d');
+    chartInstances.donut = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: m.statuses.map(s => s.name),
+            datasets: [{
+                data: m.statuses.map(s => s.count),
+                backgroundColor: m.statuses.map(s => s.color),
+                borderColor: '#161b22',
+                borderWidth: 2,
+                hoverBorderColor: '#c9d1d9',
+                hoverBorderWidth: 2
+            }]
+        },
+        options: {
+            cutout: '62%',
+            responsive: true,
+            plugins: {
+                legend: { position:'right', labels:{ padding:14, usePointStyle:true, pointStyleWidth:10 }},
+                tooltip: {
+                    backgroundColor:'#1c2333', titleColor:'#c9d1d9', bodyColor:'#8b949e',
+                    borderColor:'#30363d', borderWidth:1, cornerRadius:8, padding:10,
+                    callbacks: {
+                        label: ctx => {
+                            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                            return ` ${ctx.label}: ${ctx.raw} (${(ctx.raw/total*100).toFixed(0)}%)`;
+                        }
+                    }
+                }
+            }
+        }
     });
-    $('donutBody').innerHTML = `
-        <div class="donut-wrap">
-            <div class="donut-container">
-                <svg class="donut-svg" viewBox="0 0 100 100">${circles}</svg>
-                <div class="donut-center"><div class="big" id="donutCenter">${total}</div><div class="small" id="donutLabel">open</div></div>
-            </div>
-            <div class="legend">${legend}</div>
-        </div>`;
 }
 
 function renderAge(m) {
-    const maxC = Math.max(...m.ageDist.map(b => b.count), 1);
-    let html = '<div class="age-chart">';
-    m.ageDist.forEach(b => {
-        const h = (b.count / maxC * 100);
-        html += `<div class="age-col" title="${b.label}: ${b.count}"><div class="age-bar-wrap"><div class="age-bar" style="height:${h}%"></div></div><div class="age-label">${b.label}</div><div class="age-count">${b.count}</div></div>`;
+    $('ageBody').innerHTML = '<div class="chart-container"><canvas id="ageCanvas"></canvas></div>';
+    const ctx = document.getElementById('ageCanvas').getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, '#a371f7');
+    gradient.addColorStop(1, '#58a6ff');
+    chartInstances.age = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: m.ageDist.map(b => b.label),
+            datasets: [{
+                data: m.ageDist.map(b => b.count),
+                backgroundColor: gradient,
+                borderRadius: 4,
+                borderSkipped: false,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            aspectRatio: 1.8,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor:'#1c2333', titleColor:'#c9d1d9', bodyColor:'#8b949e',
+                    borderColor:'#30363d', borderWidth:1, cornerRadius:8, padding:10,
+                    callbacks: { label: ctx => ` ${ctx.raw} issues` }
+                }
+            },
+            scales: {
+                x: { grid:{ display:false } },
+                y: { grid:{ color:'rgba(48,54,61,0.4)' }, ticks:{ precision:0 } }
+            }
+        }
     });
-    html += '</div>';
-    $('ageBody').innerHTML = html;
 }
 
 function renderHeatmap(m) {
@@ -919,7 +945,6 @@ function renderSparkline(m) {
         $('sparkBody').innerHTML = '<p style="color:var(--text-muted)">No filing data in the last 12 months.</p>';
         return;
     }
-    const pts = sparkPoints(counts);
     const maxI = counts.indexOf(Math.max(...counts));
     const minI = counts.indexOf(Math.min(...counts));
 
@@ -930,41 +955,58 @@ function renderSparkline(m) {
                     : last3 < last6 * 0.85 ? '<span style="color:var(--green)">\u2193 decreasing</span>'
                     : '<span style="color:var(--orange)">\u2194\uFE0F flat</span>';
 
-    // Dot annotations
-    let dots = '';
-    const mn = Math.min(...counts), mx = Math.max(...counts), rng = mx - mn || 1;
-    const w = 280, h = 60, pad = 4;
-    const step = (w - 2*pad) / (counts.length - 1);
-    [maxI, minI].forEach(idx => {
-        const x = pad + idx * step;
-        const y = h - pad - ((counts[idx]-mn)/rng)*(h-2*pad);
-        const color = idx === maxI ? '#3fb950' : '#f85149';
-        dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}"/>`;
-        dots += `<text x="${x.toFixed(1)}" y="${(y-8).toFixed(1)}" class="spark-val" fill="${color}">${counts[idx]}</text>`;
-    });
-    // Month labels
-    let monthLabels = '';
-    labels.forEach((l, i) => {
-        monthLabels += `<text x="${(pad + i*step).toFixed(0)}" y="78" class="spark-month">${l}</text>`;
-    });
-
     $('sparkBody').innerHTML = `
         <p style="color:var(--text-muted);margin-bottom:10px;font-size:0.88em">
             3-month avg: <strong>${last3.toFixed(0)}/mo</strong> &middot;
             6-month avg: <strong>${last6.toFixed(0)}/mo</strong> &middot;
             Direction: ${direction}
         </p>
-        <div class="sparkline-wrap">
-            <svg viewBox="0 0 290 84" width="100%" preserveAspectRatio="xMidYMid meet">
-                <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
-                    <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
-                </linearGradient></defs>
-                <polyline points="${pts}" style="fill:url(#sparkGrad);stroke:none"/>
-                <polyline points="${pts}" class="spark-line"/>
-                ${dots} ${monthLabels}
-            </svg>
-        </div>`;
+        <div class="chart-container"><canvas id="sparkCanvas"></canvas></div>`;
+
+    const ctx = document.getElementById('sparkCanvas').getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(88,166,255,0.25)');
+    gradient.addColorStop(1, 'rgba(88,166,255,0)');
+
+    // Point colors: green for max, red for min, transparent for rest
+    const pointBg = counts.map((_, i) => i === maxI ? '#3fb950' : i === minI ? '#f85149' : 'transparent');
+    const pointBorder = counts.map((_, i) => i === maxI ? '#3fb950' : i === minI ? '#f85149' : 'transparent');
+    const pointRadius = counts.map((_, i) => (i === maxI || i === minI) ? 5 : 0);
+
+    chartInstances.spark = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: counts,
+                borderColor: '#58a6ff',
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: pointBg,
+                pointBorderColor: pointBorder,
+                pointRadius: pointRadius,
+                pointHoverRadius: 6,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            aspectRatio: 2.5,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor:'#1c2333', titleColor:'#c9d1d9', bodyColor:'#8b949e',
+                    borderColor:'#30363d', borderWidth:1, cornerRadius:8, padding:10,
+                    callbacks: { label: ctx => ` ${ctx.raw} issues filed` }
+                }
+            },
+            scales: {
+                x: { grid:{ display:false } },
+                y: { grid:{ color:'rgba(48,54,61,0.4)' }, ticks:{ precision:0 } }
+            }
+        }
+    });
 }
 
 function renderKPIs(m) {
@@ -1001,22 +1043,13 @@ function animateGauge(target) {
 
 // ── Bind Interactions ────────────────────────────
 function bindInteractions() {
-    // Funnel tooltips
+    // Funnel tooltips (trapezoid segments)
     const tip = $('funnelTip');
-    document.querySelectorAll('.funnel-stage').forEach(s => {
+    document.querySelectorAll('.funnel-segment').forEach(s => {
         s.addEventListener('mouseenter', () => { tip.textContent = s.dataset.tooltip; tip.classList.add('show'); });
         s.addEventListener('mousemove', e => { tip.style.left = (e.clientX+12)+'px'; tip.style.top = (e.clientY-30)+'px'; });
         s.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
     });
-    // Donut hover
-    const dc = $('donutCenter'), dl = $('donutLabel');
-    if (dc && dl) {
-        const totalOpen = dc.textContent;
-        document.querySelectorAll('.donut-seg').forEach(seg => {
-            seg.addEventListener('mouseenter', () => { dc.textContent = seg.dataset.count; dl.textContent = seg.dataset.label; });
-            seg.addEventListener('mouseleave', () => { dc.textContent = totalOpen; dl.textContent = 'open'; });
-        });
-    }
     // Heatmap click
     document.querySelectorAll('.heatmap-row').forEach(row => {
         row.addEventListener('click', () => {
