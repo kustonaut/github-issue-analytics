@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GitHub Issue Analytics v0.2.0 — Heatmaps, Funnels &amp; 13 Metrics</title>
+<meta name="description" content="Analyze any GitHub repo: lifecycle funnels, area heatmaps, health score, and 13 metrics. 100% client-side. Open source.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<style>
+/* ── DESIGN TOKENS ────────────────────────────────── */
+:root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+    --purple: #a371f7;
+    --cyan: #39d2c0;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── HERO ─────────────────────────────────────────── */
+.hero {
+    padding: 48px 24px 36px;
+    text-align: center;
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1e2e 100%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+.hero::before {
+    content: '';
+    position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(88,166,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero h1 { font-size: 2.6em; font-weight: 800; margin: 0 0 6px; position: relative; }
+.hero .subtitle {
+    color: var(--text-muted); font-size: 1.08em; margin: 0 0 16px;
+    max-width: 600px; display: inline-block;
+}
+.badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 22px; }
+.badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.82em; font-weight: 600;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+}
+.badge.accent { background: rgba(88,166,255,0.12); border-color: rgba(88,166,255,0.3); color: var(--accent); }
+.badge.green { background: rgba(63,185,80,0.12); border-color: rgba(63,185,80,0.3); color: var(--green); }
+.badge.purple { background: rgba(163,113,247,0.12); border-color: rgba(163,113,247,0.3); color: var(--purple); }
+.badge.new {
+    background: linear-gradient(135deg, rgba(163,113,247,0.18), rgba(57,210,192,0.18));
+    border-color: rgba(163,113,247,0.4); color: var(--cyan);
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(57,210,192,0.3); }
+    50% { box-shadow: 0 0 12px 2px rgba(57,210,192,0.15); }
+}
+
+/* ── WHAT'S NEW BANNER ────────────────────────────── */
+.whats-new {
+    background: linear-gradient(135deg, rgba(163,113,247,0.08), rgba(57,210,192,0.08));
+    border: 1px solid rgba(163,113,247,0.2);
+    border-radius: var(--radius);
+    padding: 18px 24px;
+    margin: 0 auto 22px; max-width: 680px;
+    text-align: left;
+}
+.whats-new h3 {
+    margin: 0 0 10px; font-size: 1em; color: var(--cyan);
+    display: flex; align-items: center; gap: 8px;
+}
+.whats-new ul { margin: 0; padding: 0 0 0 20px; }
+.whats-new li { color: var(--text-muted); font-size: 0.9em; margin-bottom: 4px; }
+.whats-new li strong { color: var(--text); }
+
+/* ── REPO INPUT ───────────────────────────────────── */
+.repo-input-section { max-width: 580px; margin: 0 auto 16px; }
+.repo-form {
+    display: flex; gap: 0; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; padding: 4px;
+}
+.repo-form svg { margin: 0 8px 0 12px; color: var(--text-muted); flex-shrink: 0; }
+.repo-form input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-size: 1em; padding: 10px 4px;
+}
+.repo-form input::placeholder { color: var(--text-muted); }
+.repo-form button {
+    padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer;
+    background: var(--accent); color: #fff; font-weight: 600; font-size: 0.95em;
+    transition: background 0.2s;
+}
+.repo-form button:hover { background: #4c9aed; }
+.repo-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+.repo-hint { text-align: center; margin-top: 10px; }
+.quick-fills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.quick-fill {
+    padding: 4px 10px; border-radius: 6px; font-size: 0.8em;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    cursor: pointer; color: var(--text-muted); transition: all 0.2s;
+}
+.quick-fill:hover { border-color: var(--accent); color: var(--text); background: rgba(88,166,255,0.08); }
+.quick-fill.demo {
+    background: rgba(88,166,255,0.1); border-color: rgba(88,166,255,0.3);
+    color: var(--accent); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.quick-fill.demo svg { width: 12px; height: 12px; }
+.token-toggle { font-size: 0.82em; color: var(--text-muted); cursor: pointer; }
+.token-row {
+    display: flex; align-items: center; gap: 8px;
+    max-width: 580px; margin: 8px auto 0; padding: 8px 14px;
+    background: var(--surface); border-radius: 8px; border: 1px solid var(--border);
+}
+.token-label { color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
+.token-row input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-size: 0.9em; padding: 6px;
+}
+.token-row input::placeholder { color: var(--text-muted); }
+
+/* ── PROGRESS ─────────────────────────────────────── */
+.progress-section { display: none; max-width: 580px; margin: 18px auto 0; }
+.progress-text {
+    font-size: 0.9em; color: var(--text-muted);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.spinner {
+    width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress-bar-track {
+    height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%; border-radius: 3px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    transition: width 0.3s ease;
+}
+.error-banner {
+    display: none; max-width: 580px; margin: 14px auto 0;
+    padding: 12px 16px; background: rgba(248,81,73,0.1);
+    border: 1px solid rgba(248,81,73,0.3); border-radius: 8px;
+    color: var(--red); font-size: 0.9em;
+}
+.rate-info {
+    display: none; text-align: center; font-size: 0.78em;
+    color: var(--text-muted); margin-top: 8px;
+}
+
+/* ── CTA ROW ──────────────────────────────────────── */
+.cta-row { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.cta {
+    padding: 10px 22px; border-radius: 8px; font-weight: 600; font-size: 0.92em;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+}
+.cta-primary { background: var(--accent); color: #fff; }
+.cta-primary:hover { background: #4c9aed; text-decoration: none; }
+.cta-secondary { border: 1px solid var(--border); color: var(--text); }
+.cta-secondary:hover { border-color: var(--accent); text-decoration: none; }
+.install-block {
+    margin: 16px auto 0; padding: 10px 18px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 0.88em;
+    color: var(--green); cursor: pointer; display: inline-block;
+    transition: border-color 0.2s;
+}
+.install-block:hover { border-color: var(--green); }
+.install-block.copied { color: var(--accent); }
+
+/* ── DASHBOARD CONTENT ────────────────────────────── */
+.content { max-width: 960px; margin: 0 auto; padding: 20px; }
+#dashboard { display: none; }
+.repo-header { margin-bottom: 16px; }
+.repo-name { font-size: 1.4em; font-weight: 700; color: var(--text); }
+.repo-stats { display: flex; gap: 18px; margin-top: 4px; color: var(--text-muted); font-size: 0.9em; }
+.repo-stats .stat strong { color: var(--text); }
+
+/* ── SHS GAUGE ────────────────────────────────────── */
+.shs-section { display: flex; align-items: center; justify-content: center; gap: 30px; margin-bottom: 20px; flex-wrap: wrap; }
+.gauge-container { position: relative; width: 170px; height: 170px; }
+.gauge-bg { fill: none; stroke: var(--surface); stroke-width: 10; }
+.gauge-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray 0.5s; }
+.gauge-text {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center;
+}
+.gauge-value { font-size: 2.4em; font-weight: 800; line-height: 1; }
+.gauge-label { font-size: 0.78em; color: var(--text-muted); margin-top: 2px; }
+.shs-details { display: flex; gap: 18px; flex-wrap: wrap; }
+.shs-stat { text-align: center; min-width: 80px; }
+.shs-stat .val { font-size: 1.4em; font-weight: 700; }
+.shs-stat .lbl { font-size: 0.75em; color: var(--text-muted); }
+
+/* ── SECTION CARD ─────────────────────────────────── */
+.section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+}
+.section h2 {
+    font-size: 1.05em; margin: 0 0 4px;
+    display: flex; align-items: center; gap: 8px;
+}
+.section-badge {
+    font-size: 0.7em; padding: 2px 8px; border-radius: 10px;
+    background: rgba(88,166,255,0.1); color: var(--accent); font-weight: 600;
+}
+.section-badge.new-feat {
+    background: linear-gradient(135deg, rgba(163,113,247,0.15), rgba(57,210,192,0.15));
+    color: var(--cyan);
+}
+
+/* ── LIFECYCLE FUNNEL (v0.2.0) ────────────────────── */
+.lifecycle-funnel { display: flex; flex-direction: column; gap: 2px; }
+.lifecycle-stage {
+    display: grid; grid-template-columns: 110px 1fr 70px;
+    align-items: center; gap: 10px; padding: 8px 0;
+    opacity: 0; animation: slideInRight 0.4s ease-out forwards;
+}
+.lifecycle-stage:nth-child(1) { animation-delay: 0s; }
+.lifecycle-stage:nth-child(2) { animation-delay: 0.1s; }
+.lifecycle-stage:nth-child(3) { animation-delay: 0.2s; }
+.lifecycle-stage:nth-child(4) { animation-delay: 0.3s; }
+@keyframes slideInRight { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
+.lifecycle-label {
+    font-size: 0.85em; font-weight: 600; display: flex; align-items: center; gap: 6px;
+}
+.lifecycle-icon {
+    width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 0.75em; font-weight: 700; color: #fff;
+}
+.lifecycle-bar-track {
+    height: 28px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden;
+    position: relative;
+}
+.lifecycle-bar {
+    height: 100%; border-radius: 6px; min-width: 24px;
+    display: flex; align-items: center; padding: 0 10px;
+    transition: width 0.6s ease-out;
+}
+.lifecycle-count { font-size: 0.82em; font-weight: 700; color: #fff; white-space: nowrap; }
+.lifecycle-pct { font-size: 0.82em; color: var(--text-muted); text-align: right; font-weight: 600; }
+.lifecycle-drop {
+    display: flex; align-items: center; gap: 4px; padding: 2px 0 2px 32px;
+    font-size: 0.75em; color: var(--text-muted); opacity: 0.7;
+}
+.lifecycle-drop .arrow { color: var(--orange); }
+
+/* ── CLASSIC FUNNEL (kept from v0.1) ──────────────── */
+.funnel-stage {
+    display: grid; grid-template-columns: 100px 1fr 50px;
+    align-items: center; gap: 8px; padding: 6px 0;
+    opacity: 0; animation: slideInRight 0.4s ease-out forwards;
+}
+.funnel-stage:nth-child(1) { animation-delay: 0s; }
+.funnel-stage:nth-child(2) { animation-delay: 0.12s; }
+.funnel-stage:nth-child(3) { animation-delay: 0.24s; }
+.funnel-stage:nth-child(4) { animation-delay: 0.36s; }
+.funnel-stage:nth-child(5) { animation-delay: 0.48s; }
+.funnel-label { font-size: 0.85em; color: var(--text-muted); font-weight: 600; }
+.funnel-bar-track { height: 24px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden; }
+.funnel-bar {
+    height: 100%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px;
+    min-width: 20px; transition: width 0.6s ease-out;
+}
+.funnel-count { font-size: 0.82em; font-weight: 700; color: #fff; }
+.funnel-pct { font-size: 0.82em; color: var(--text-muted); text-align: right; }
+
+/* ── TWO-COL ──────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* ── DONUT ────────────────────────────────────────── */
+.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.donut-container { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+.donut-svg { width: 100%; height: 100%; }
+.donut-seg { transition: opacity 0.2s; cursor: pointer; }
+.donut-seg:hover { opacity: 0.7; }
+.donut-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center;
+}
+.donut-center .big { font-size: 1.4em; font-weight: 700; }
+.donut-center .small { font-size: 0.72em; color: var(--text-muted); }
+.legend { display: flex; flex-direction: column; gap: 4px; }
+.legend-item { font-size: 0.82em; display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-val { font-weight: 600; color: var(--text); }
+
+/* ── AGE BAR CHART ────────────────────────────────── */
+.age-chart { display: flex; gap: 4px; align-items: flex-end; height: 120px; }
+.age-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.age-bar-wrap { width: 100%; flex: 1; display: flex; align-items: flex-end; }
+.age-bar {
+    width: 100%; border-radius: 4px 4px 0 0;
+    background: linear-gradient(to top, var(--accent), var(--purple));
+    min-height: 2px; transition: height 0.4s ease-out;
+}
+.age-label { font-size: 0.62em; color: var(--text-muted); margin-top: 4px; white-space: nowrap; }
+.age-count { font-size: 0.7em; color: var(--text); font-weight: 600; }
+
+/* ── SPARKLINE ────────────────────────────────────── */
+.sparkline-wrap { overflow-x: auto; }
+.spark-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.spark-val { font-size: 7px; font-weight: 700; text-anchor: middle; }
+.spark-month { font-size: 5.5px; fill: var(--text-muted); text-anchor: middle; }
+
+/* ── ENHANCED HEATMAP (v0.2.0) ────────────────────── */
+.heatmap-grid { overflow-x: auto; }
+.heatmap-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+.heatmap-table th {
+    text-align: left; padding: 8px 10px; color: var(--text-muted); font-weight: 600;
+    border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 0.88em;
+}
+.heatmap-table td { padding: 7px 10px; border-bottom: 1px solid rgba(48,54,61,0.4); }
+.heatmap-row { cursor: pointer; transition: background 0.15s; }
+.heatmap-row:hover { background: rgba(88,166,255,0.04); }
+.heatmap-row.active { background: rgba(88,166,255,0.08); }
+.area-name { font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.area-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.heat-cell {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-weight: 600; font-size: 0.9em; min-width: 32px; text-align: center;
+}
+.severity-indicator {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.75em; font-weight: 600; padding: 1px 6px;
+    border-radius: 4px;
+}
+.severity-green { background: rgba(63,185,80,0.15); color: var(--green); }
+.severity-amber { background: rgba(210,153,34,0.15); color: var(--orange); }
+.severity-red { background: rgba(248,81,73,0.15); color: var(--red); }
+
+/* ── KPI GRID ─────────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; text-align: center;
+    animation: fadeInUp 0.4s ease-out backwards;
+}
+.kpi-card .value { font-size: 1.8em; font-weight: 800; line-height: 1.1; }
+.kpi-card .label { font-size: 0.78em; color: var(--text-muted); margin-top: 4px; }
+.mini-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-top: 10px; }
+.mini-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease-out; }
+@keyframes fadeInUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── FEATURE HIGHLIGHTS (v0.2.0) ──────────────────── */
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 14px; }
+.feature-card {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    transition: border-color 0.2s, transform 0.2s;
+}
+.feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.feature-card h4 { margin: 0 0 6px; font-size: 0.95em; display: flex; align-items: center; gap: 6px; }
+.feature-card p { margin: 0; font-size: 0.82em; color: var(--text-muted); line-height: 1.5; }
+.feature-tag {
+    font-size: 0.68em; padding: 2px 6px; border-radius: 4px;
+    background: rgba(57,210,192,0.12); color: var(--cyan); font-weight: 600;
+}
+
+/* ── FUNNEL TOOLTIP ───────────────────────────────── */
+.funnel-tooltip {
+    position: fixed; pointer-events: none; z-index: 100;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px; font-size: 0.82em;
+    color: var(--text); box-shadow: var(--shadow);
+    opacity: 0; transition: opacity 0.15s;
+}
+.funnel-tooltip.show { opacity: 1; }
+
+/* ── FOOTER ───────────────────────────────────────── */
+.footer-links {
+    text-align: center; padding: 24px; border-top: 1px solid var(--border);
+    color: var(--text-muted); font-size: 0.82em; margin-top: 20px;
+}
+.footer-links a { color: var(--text-muted); margin: 0 8px; }
+.footer-links a:hover { color: var(--accent); }
+
+/* ── RESPONSIVE ───────────────────────────────────── */
+@media (max-width:768px) {
+    .hero h1 { font-size: 2em; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .shs-section { flex-direction: column; }
+    .lifecycle-stage { grid-template-columns: 90px 1fr 55px; }
+    .funnel-stage { grid-template-columns: 80px 1fr 50px; }
+    .repo-form { flex-direction: column; }
+    .repo-form button { width: 100%; }
+    .two-col { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+}
+@media (max-width:480px) {
+    .hero { padding: 28px 16px; }
+    .content { padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+    <h1>&#x1F4CA; GitHub Issue Analytics</h1>
+    <p class="subtitle">Enter any public GitHub repo. Get instant issue intelligence &mdash;<br>
+    lifecycle funnels, area heatmaps, gauges, and 13-metric scorecard.</p>
+    <div class="badges">
+        <span class="badge new">&#x2728; v0.2.0</span>
+        <span class="badge accent">Live Analysis</span>
+        <span class="badge green">No Server Needed</span>
+        <span class="badge">13 Metrics</span>
+        <span class="badge purple">Lifecycle Funnels</span>
+        <span class="badge">Area Heatmaps</span>
+        <span class="badge">MIT License</span>
+    </div>
+
+    <!-- WHAT'S NEW -->
+    <div class="whats-new">
+        <h3>&#x1F680; What's New in v0.2.0</h3>
+        <ul>
+            <li><strong>Lifecycle Funnel</strong> &mdash; 4-stage pipeline (Intake &rarr; Triage &rarr; Active &rarr; Closing) with drop-off rates</li>
+            <li><strong>Area Heatmap</strong> &mdash; Product area &times; 7 metrics with green/amber/red severity coloring</li>
+            <li><strong>CLI commands</strong> &mdash; <code>gia heatmap</code> and <code>gia funnel</code> for terminal-first workflows</li>
+            <li><strong>Optional viz deps</strong> &mdash; <code>pip install github-issue-analytics[viz]</code> for matplotlib outputs</li>
+        </ul>
+    </div>
+
+    <!-- REPO INPUT -->
+    <div class="repo-input-section">
+        <form class="repo-form" id="repoForm" onsubmit="return startAnalysis(event)">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+            <input type="text" id="repoInput" placeholder="owner/repo  (e.g. facebook/react)" autocomplete="off" spellcheck="false">
+            <button type="submit" id="analyzeBtn">Analyze</button>
+        </form>
+        <div class="repo-hint">
+            <div class="quick-fills">
+                <span class="quick-fill demo" onclick="tryRepo('pallets/flask')">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l2 3h3l-2.5 2 1 3L8 6.5 4.5 8l1-3L3 3h3L8 0z"/></svg>
+                    Live Demo
+                </span>
+                <span class="quick-fill" onclick="tryRepo('facebook/react')">facebook/react</span>
+                <span class="quick-fill" onclick="tryRepo('microsoft/vscode')">microsoft/vscode</span>
+                <span class="quick-fill" onclick="tryRepo('vercel/next.js')">vercel/next.js</span>
+                <span class="quick-fill" onclick="tryRepo('pallets/flask')">pallets/flask</span>
+                <span class="quick-fill" onclick="tryRepo('golang/go')">golang/go</span>
+            </div>
+            <a class="token-toggle" onclick="toggleToken()">&#x1F511; Add token for higher rate limits</a>
+        </div>
+        <div class="token-row" id="tokenRow" style="display:none">
+            <span class="token-label">PAT:</span>
+            <input type="password" id="ghToken" placeholder="ghp_... (optional, stored only in memory)">
+        </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-section" id="progressSection">
+        <div class="progress-text"><span class="spinner"></span> <span id="progressText">Fetching issues...</span></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBar"></div></div>
+    </div>
+    <div class="error-banner" id="errorBanner"></div>
+    <div class="rate-info" id="rateInfo"></div>
+
+    <!-- CTAs -->
+    <div class="cta-row">
+        <a class="cta cta-primary" href="https://github.com/kustonaut/github-issue-analytics">&#x2B50; View on GitHub</a>
+        <a class="cta cta-secondary" href="https://github.com/kustonaut/github-issue-analytics#-quick-start">Quick Start &#x2192;</a>
+    </div>
+    <div class="install-block" id="installCmd" onclick="copyInstall()">pip install github-issue-analytics[viz]</div>
+</div>
+
+<!-- ═══ DASHBOARD (hidden until analysis completes) ═══ -->
+<div class="content">
+<div id="dashboard">
+
+    <!-- Repo header -->
+    <div class="repo-header" id="repoHeader"></div>
+
+    <!-- SHS Gauge -->
+    <div class="shs-section" id="shsSection"></div>
+
+    <!-- NEW: Lifecycle Funnel (v0.2.0) -->
+    <div class="section" id="lifecycleSection">
+        <h2>&#x1F300; Lifecycle Funnel <span class="section-badge new-feat">NEW in v0.2.0</span></h2>
+        <p style="color:var(--text-muted);margin-bottom:14px;font-size:0.88em">
+            4-stage pipeline: where do issues stall? Drop-off rates reveal bottlenecks.
+        </p>
+        <div id="lifecycleBody"></div>
+    </div>
+
+    <!-- Classic Funnel -->
+    <div class="section" id="funnelSection">
+        <h2>&#x1F525; Issue Funnel <span class="section-badge">Classic</span></h2>
+        <p style="color:var(--text-muted);margin-bottom:14px;font-size:0.88em">
+            How issues flow from filing to resolution. Hover for details.
+        </p>
+        <div id="funnelBody"></div>
+    </div>
+
+    <!-- Two-col: donut + age -->
+    <div class="two-col">
+        <div class="section" id="donutSection">
+            <h2>&#x1F3F7;&#xFE0F; Label Distribution</h2>
+            <div id="donutBody"></div>
+        </div>
+        <div class="section" id="ageSection">
+            <h2>&#x1F4E6; Backlog Age</h2>
+            <div id="ageBody"></div>
+        </div>
+    </div>
+
+    <!-- NEW: Enhanced Heatmap (v0.2.0) -->
+    <div class="section" id="heatmapSection">
+        <h2>&#x1F5FA;&#xFE0F; Area Heatmap <span class="section-badge new-feat">Enhanced in v0.2.0</span></h2>
+        <p style="color:var(--text-muted);margin-bottom:10px;font-size:0.88em">
+            Product area &times; 7 metrics. Green = healthy, Amber = watch, Red = action needed.
+        </p>
+        <div id="heatmapBody" class="heatmap-grid"></div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="section" id="sparkSection">
+        <h2>&#x1F4C8; Filing Trend (12 months)</h2>
+        <div id="sparkBody"></div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Feature Highlights -->
+    <div style="margin-top:24px">
+        <h2 style="font-size:1.1em;margin-bottom:4px">&#x2699;&#xFE0F; v0.2.0 Features</h2>
+        <p style="color:var(--text-muted);font-size:0.88em;margin-bottom:14px">
+            Everything above runs 100% in your browser. The Python library adds even more:
+        </p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h4>&#x1F5FA;&#xFE0F; Matplotlib Heatmap <span class="feature-tag">NEW</span></h4>
+                <p>Area &times; 7-metric grid as publication-ready PNG/SVG. Green/amber/red severity with auto-sizing.</p>
+            </div>
+            <div class="feature-card">
+                <h4>&#x1F300; Lifecycle Funnel <span class="feature-tag">NEW</span></h4>
+                <p>4-stage Intake &rarr; Triage &rarr; Active &rarr; Closing funnel with threshold-based coloring.</p>
+            </div>
+            <div class="feature-card">
+                <h4>&#x1F4BB; CLI Commands <span class="feature-tag">NEW</span></h4>
+                <p><code>gia heatmap</code> and <code>gia funnel</code> for terminal-first workflows with --output and --open flags.</p>
+            </div>
+            <div class="feature-card">
+                <h4>&#x1F4CA; 13 Metrics Engine</h4>
+                <p>Health score, fix rate, median age, escalation rate, stale %, untriaged %, DSAT, and more.</p>
+            </div>
+            <div class="feature-card">
+                <h4>&#x1F310; Zero-Backend Demo</h4>
+                <p>This entire page is a single HTML file. No React, no build step, no server. Just paste and analyze.</p>
+            </div>
+            <div class="feature-card">
+                <h4>&#x1F4E6; pip install</h4>
+                <p>Core library + optional <code>[viz]</code> extras for matplotlib. Works on Python 3.9+.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<!-- Footer -->
+<div class="footer-links">
+    <a href="https://github.com/kustonaut/github-issue-analytics">GitHub</a>
+    <a href="https://github.com/kustonaut/github-issue-analytics/blob/main/CONTRIBUTING.md">Contributing</a>
+    <a href="https://github.com/kustonaut/github-issue-analytics/blob/main/examples/config.yaml">Example Config</a>
+    <a href="https://github.com/kustonaut">@kustonaut</a>
+    <br>
+    Built with &#x2764;&#xFE0F; by <a href="https://github.com/kustonaut">@kustonaut</a> &mdash; v0.2.0 &mdash; open-source tools for engineering teams at scale.
+</div>
+
+<div class="funnel-tooltip" id="funnelTip"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT ENGINE — v0.2.0
+     ═══════════════════════════════════════════════════ -->
+<script>
+// ── State ────────────────────────────────────────
+let allIssues = [];
+let currentRepo = '';
+
+// ── Helpers ──────────────────────────────────────
+const $ = id => document.getElementById(id);
+const labelNames = issue => (issue.labels || []).map(l => l.name.toLowerCase());
+const daysBetween = (a, b) => (b - a) / 864e5;
+
+function gaugeColor(score) {
+    if (score >= 70) return '#3fb950';
+    if (score >= 40) return '#d29922';
+    return '#f85149';
+}
+function severityColor(val, lo, hi) {
+    // Match Python heatmap.py: green → amber → red
+    if (hi === lo) return { bg: 'rgba(63,185,80,0.15)', text: '#3fb950', label: 'green' };
+    const t = (val - lo) / (hi - lo);
+    if (t < 0.33) return { bg: 'rgba(63,185,80,0.15)', text: '#3fb950', label: 'green' };
+    if (t < 0.66) return { bg: 'rgba(210,153,34,0.15)', text: '#d29922', label: 'amber' };
+    return { bg: 'rgba(248,81,73,0.15)', text: '#f85149', label: 'red' };
+}
+function severityColorInverse(val, lo, hi) {
+    // Inverse: higher is BETTER (e.g. fix rate)
+    if (hi === lo) return { bg: 'rgba(63,185,80,0.15)', text: '#3fb950', label: 'green' };
+    const t = (val - lo) / (hi - lo);
+    if (t > 0.66) return { bg: 'rgba(63,185,80,0.15)', text: '#3fb950', label: 'green' };
+    if (t > 0.33) return { bg: 'rgba(210,153,34,0.15)', text: '#d29922', label: 'amber' };
+    return { bg: 'rgba(248,81,73,0.15)', text: '#f85149', label: 'red' };
+}
+function heatColor(val, lo, hi) {
+    if (hi === lo) return '#3fb950';
+    const t = (val - lo) / (hi - lo);
+    if (t < 0.5) {
+        const t2 = t * 2;
+        const r = Math.round(63 + (210-63)*t2), g = Math.round(185 + (153-185)*t2), b = Math.round(80 + (34-80)*t2);
+        return `rgb(${r},${g},${b})`;
+    }
+    const t2 = (t-0.5)*2;
+    const r = Math.round(210 + (248-210)*t2), g = Math.round(153 + (81-153)*t2), b = Math.round(34 + (73-34)*t2);
+    return `rgb(${r},${g},${b})`;
+}
+function sparkPoints(data, w=280, h=60, pad=4) {
+    const mn = Math.min(...data), mx = Math.max(...data), rng = mx - mn || 1;
+    const step = (w - 2*pad) / (data.length - 1);
+    return data.map((v, i) => `${(pad + i*step).toFixed(1)},${(h - pad - ((v-mn)/rng)*(h-2*pad)).toFixed(1)}`).join(' ');
+}
+
+// ── UI Helpers ───────────────────────────────────
+function tryRepo(name) { $('repoInput').value = name; $('repoForm').dispatchEvent(new Event('submit')); }
+function toggleToken() { const r = $('tokenRow'); r.style.display = r.style.display === 'none' ? 'flex' : 'none'; }
+function copyInstall() {
+    navigator.clipboard.writeText('pip install github-issue-analytics[viz]');
+    const el = $('installCmd'); el.textContent = '\u2713 Copied!'; el.classList.add('copied');
+    setTimeout(() => { el.textContent = 'pip install github-issue-analytics[viz]'; el.classList.remove('copied'); }, 1500);
+}
+function showError(msg) { const el = $('errorBanner'); el.textContent = msg; el.style.display = 'block'; }
+function hideError() { $('errorBanner').style.display = 'none'; }
+
+// ── Fetch Engine ─────────────────────────────────
+async function fetchIssues(owner, repo, token) {
+    const headers = { 'Accept': 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = `token ${token}`;
+
+    allIssues = [];
+    let page = 1;
+    const maxPages = 30;
+
+    while (page <= maxPages) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/issues?state=all&per_page=100&page=${page}&sort=created&direction=desc`;
+        const resp = await fetch(url, { headers });
+
+        const remaining = resp.headers.get('x-ratelimit-remaining');
+        const limit = resp.headers.get('x-ratelimit-limit');
+        const reset = resp.headers.get('x-ratelimit-reset');
+        if (remaining !== null) {
+            const resetDate = new Date(parseInt(reset)*1000);
+            const mins = Math.max(0, Math.round((resetDate - new Date()) / 60000));
+            $('rateInfo').style.display = 'block';
+            $('rateInfo').textContent = `API: ${remaining}/${limit} requests remaining \u00b7 resets in ${mins}m`;
+        }
+
+        if (resp.status === 403) throw new Error(`Rate limited. ${remaining === '0' ? 'Add a GitHub token for 5,000 req/hr.' : 'Check permissions.'}`);
+        if (resp.status === 404) throw new Error(`Repository "${owner}/${repo}" not found or is private.`);
+        if (!resp.ok) throw new Error(`GitHub API returned ${resp.status}: ${resp.statusText}`);
+
+        const data = await resp.json();
+        if (data.length === 0) break;
+
+        const issues = data.filter(i => !i.pull_request);
+        allIssues = allIssues.concat(issues);
+
+        const pct = Math.min(95, page / (data.length < 100 ? page : maxPages) * 100);
+        $('progressBar').style.width = pct + '%';
+        $('progressText').innerHTML = `<span class="spinner"></span>Fetched <strong>${allIssues.length}</strong> issues (page ${page})...`;
+
+        if (data.length < 100) break;
+        page++;
+    }
+    $('progressBar').style.width = '100%';
+    $('progressText').innerHTML = `<strong>${allIssues.length}</strong> issues loaded. Computing metrics...`;
+    return allIssues;
+}
+
+// ── Metric Engine ────────────────────────────────
+function computeMetrics(issues) {
+    const now = new Date();
+    const open = issues.filter(i => i.state === 'open');
+    const closed = issues.filter(i => i.state === 'closed');
+    const total = issues.length;
+
+    const ages = open.map(i => daysBetween(new Date(i.created_at), now)).sort((a,b) => a-b);
+    const medianAgeDays = ages.length ? ages[Math.floor(ages.length/2)] : 0;
+    const fixRate = total ? (closed.length / total * 100) : 0;
+    const escalated = open.filter(i => i.comments >= 5);
+    const escalationRate = open.length ? (escalated.length / open.length * 100) : 0;
+    const noResponse = open.filter(i => i.comments === 0);
+    const noResponseRate = open.length ? (noResponse.length / open.length * 100) : 0;
+    const staleItems = open.filter(i => daysBetween(new Date(i.updated_at), now) > 30);
+    const untriaged = open.filter(i => !i.labels || i.labels.length === 0);
+    const untriagedRate = open.length ? (untriaged.length / open.length * 100) : 0;
+    const dsatScore = staleItems.length + escalated.length;
+
+    // ── Label-based area classification ──
+    const labelCounts = {};
+    for (const issue of issues) {
+        for (const l of (issue.labels || [])) {
+            const name = l.name.toLowerCase();
+            if (['bug','enhancement','feature','feature request','help wanted','good first issue',
+                 'documentation','docs','duplicate','invalid','wontfix','question','stale',
+                 'p0','p1','p2','p3','priority: critical','priority: high','priority: medium','priority: low',
+                 'needs triage','triaged','confirmed','in progress','wip'].includes(name)) continue;
+            labelCounts[name] = (labelCounts[name] || 0) + 1;
+        }
+    }
+    const topLabels = Object.entries(labelCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+
+    const areas = topLabels.map(([labelName]) => {
+        const areaIssues = issues.filter(i => labelNames(i).includes(labelName));
+        const aOpen = areaIssues.filter(i => i.state === 'open');
+        const aClosed = areaIssues.filter(i => i.state === 'closed');
+        const aAges = aOpen.map(i => daysBetween(new Date(i.created_at), now) / 365).sort((a,b) => a-b);
+        const medAge = aAges.length ? aAges[Math.floor(aAges.length/2)] : 0;
+        const bugs = areaIssues.filter(i => labelNames(i).some(l => l === 'bug' || l.includes('bug')));
+        const regs = areaIssues.filter(i => labelNames(i).some(l => l.includes('regression')));
+        const aStale = aOpen.filter(i => daysBetween(new Date(i.updated_at), now) > 30);
+        const aFixRate = areaIssues.length ? (aClosed.length / areaIssues.length * 100) : 0;
+        const aDsat = aStale.length + aOpen.filter(i => i.comments >= 5).length;
+        const displayName = labelName.length > 22 ? labelName.substring(0,22) + '\u2026' : labelName;
+        return { name: displayName, total: areaIssues.length, bugs: bugs.length, regressions: regs.length,
+                 ageDays: medAge, ageLabel: medAge.toFixed(1)+'yr', fix_rate: aFixRate, stale: aStale.length, dsat: aDsat };
+    });
+
+    // ── Age buckets ──
+    const bucketDefs = [
+        {label:'<7d',max:7}, {label:'7-30d',max:30}, {label:'30-90d',max:90},
+        {label:'90-180d',max:180}, {label:'180d-1yr',max:365}, {label:'1-2yr',max:730},
+        {label:'2-3yr',max:1095}, {label:'>3yr',max:Infinity}
+    ];
+    const ageDist = bucketDefs.map(b => ({label:b.label, count:0}));
+    for (const issue of open) {
+        const d = daysBetween(new Date(issue.created_at), now);
+        let prev = 0;
+        for (let k = 0; k < bucketDefs.length; k++) {
+            if (d > prev && d <= bucketDefs[k].max) { ageDist[k].count++; break; }
+            prev = bucketDefs[k].max;
+        }
+    }
+
+    // ── Monthly filing trend ──
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthly = [];
+    for (let m = 11; m >= 0; m--) {
+        const d = new Date(now); d.setMonth(d.getMonth() - m);
+        const yr = d.getFullYear(), mo = d.getMonth();
+        const cnt = issues.filter(i => { const c = new Date(i.created_at); return c.getFullYear()===yr && c.getMonth()===mo; }).length;
+        monthly.push({ label: monthNames[mo], count: cnt });
+    }
+
+    // ── Status classification ──
+    const statusMap = {};
+    const statusColors = {triaged:'#3fb950', untriaged:'#f85149', needs_info:'#d29922', in_progress:'#58a6ff', labeled:'#a371f7'};
+    for (const issue of open) {
+        const labels = labelNames(issue);
+        let status;
+        if (labels.some(l => l.includes('triaged') || l==='confirmed' || l==='accepted')) status = 'triaged';
+        else if (labels.some(l => l.includes('needs') || l.includes('info') || l==='question')) status = 'needs_info';
+        else if (labels.some(l => l.includes('progress') || l==='wip' || l.includes('working'))) status = 'in_progress';
+        else if (labels.length === 0) status = 'untriaged';
+        else status = 'labeled';
+        statusMap[status] = (statusMap[status] || 0) + 1;
+    }
+    const statuses = Object.entries(statusMap).sort((a,b) => b[1]-a[1])
+        .map(([name, count]) => ({name, count, color: statusColors[name] || '#8b949e'}));
+
+    // ── Classic Funnel ──
+    const classified = issues.filter(i => i.labels && i.labels.length > 0);
+    const triaged = issues.filter(i => labelNames(i).some(l => l.includes('triaged') || l==='confirmed' || l==='accepted' || l.includes('priority')));
+    const inProgress = open.filter(i => labelNames(i).some(l => l.includes('progress') || l==='wip'));
+    const funnel = [
+        {label:'Total Filed', count:total, desc:'All issues in repo', color:'#58a6ff'},
+        {label:'Labeled', count:classified.length, desc:'Issues with at least one label', color:'#a371f7'},
+        {label:'Triaged', count:Math.max(triaged.length, inProgress.length > triaged.length ? inProgress.length : 0), desc:'Has triage/priority label', color:'#3fb950'},
+        {label:'In Progress', count:inProgress.length, desc:'Actively being worked on', color:'#d29922'},
+        {label:'Closed', count:closed.length, desc:'Resolved or closed', color:'#238636'},
+    ];
+
+    // ── NEW: Lifecycle Funnel (v0.2.0 — matches funnel.py) ──
+    const untriagedIssues = open.filter(i => !i.labels || i.labels.length === 0 || labelNames(i).some(l => l.includes('needs triage') || l.includes('untriaged')));
+    const triagedOpen = open.filter(i => i.labels && i.labels.length > 0 && !labelNames(i).some(l => l.includes('progress') || l==='wip'));
+    const activeWork = open.filter(i => labelNames(i).some(l => l.includes('progress') || l==='wip' || l.includes('working') || l.includes('assigned')));
+
+    // Thresholds match funnel.py logic
+    function lifecycleColor(stage, count) {
+        if (stage === 'INTAKE') {
+            if (count > 1000) return '#f85149';  // red
+            if (count > 500) return '#d29922';     // amber
+            return '#3fb950';                       // green
+        }
+        if (stage === 'TRIAGE') {
+            const pct = open.length ? (untriagedIssues.length / open.length * 100) : 0;
+            if (pct > 40) return '#f85149';
+            if (pct > 20) return '#d29922';
+            return '#3fb950';
+        }
+        if (stage === 'ACTIVE') {
+            const rate = total ? (closed.length / total) : 0;
+            if (rate < 0.25) return '#f85149';
+            if (rate < 0.50) return '#d29922';
+            return '#3fb950';
+        }
+        if (stage === 'CLOSING') {
+            const pct = total ? (closed.length / total * 100) : 0;
+            if (pct > 60) return '#3fb950';
+            if (pct > 40) return '#d29922';
+            return '#f85149';
+        }
+        return '#58a6ff';
+    }
+
+    const lifecycle = [
+        { stage: 'INTAKE',  label: 'Intake',  icon: '&#x1F4E5;', count: total,               desc: 'All issues ever filed' },
+        { stage: 'TRIAGE',  label: 'Triage',   icon: '&#x1F50D;', count: open.length - activeWork.length, desc: 'Open issues awaiting or completed triage' },
+        { stage: 'ACTIVE',  label: 'Active',   icon: '&#x2699;',  count: activeWork.length,    desc: 'Issues actively being worked' },
+        { stage: 'CLOSING', label: 'Closing',  icon: '&#x2705;',  count: closed.length,        desc: 'Resolved and closed issues' },
+    ];
+    lifecycle.forEach(s => { s.color = lifecycleColor(s.stage, s.count); });
+
+    // ── SHS score ──
+    let shs = 100;
+    shs -= Math.min(medianAgeDays / 365 * 20, 30);
+    shs -= Math.min((100 - fixRate) * 0.3, 25);
+    shs -= Math.min(escalationRate * 0.2, 20);
+    shs -= Math.min(noResponseRate * 0.3, 15);
+    shs -= Math.min(untriagedRate * 0.1, 10);
+    shs = Math.max(0, Math.min(100, Math.round(shs)));
+
+    return {
+        total, openCount: open.length, closedCount: closed.length,
+        medianAgeDays, fixRate, escalationRate, noResponseRate,
+        staleCount: staleItems.length, untriagedRate, dsatScore, shs,
+        areas, ageDist, monthly, statuses, funnel, lifecycle
+    };
+}
+
+// ── Render Engine ────────────────────────────────
+
+function renderDashboard(m) {
+    $('dashboard').style.display = 'block';
+    renderRepoHeader(m);
+    renderGauge(m);
+    renderLifecycleFunnel(m);
+    renderFunnel(m);
+    renderDonut(m);
+    renderAge(m);
+    renderHeatmap(m);
+    renderSparkline(m);
+    renderKPIs(m);
+    bindInteractions();
+}
+
+function renderRepoHeader(m) {
+    $('repoHeader').innerHTML = `
+        <div class="repo-name">${currentRepo}</div>
+        <div class="repo-stats">
+            <div class="stat"><strong>${m.total.toLocaleString()}</strong> total issues</div>
+            <div class="stat"><strong>${m.openCount.toLocaleString()}</strong> open</div>
+            <div class="stat"><strong>${m.closedCount.toLocaleString()}</strong> closed</div>
+        </div>`;
+}
+
+function renderGauge(m) {
+    const medianYr = (m.medianAgeDays / 365).toFixed(1);
+    const color = gaugeColor(m.shs);
+    $('shsSection').innerHTML = `
+        <div class="gauge-container">
+            <svg viewBox="0 0 120 120" width="170" height="170">
+                <circle cx="60" cy="60" r="50" class="gauge-bg"/>
+                <circle cx="60" cy="60" r="50" class="gauge-fill" id="shsGauge"
+                    stroke="${color}" stroke-dasharray="0 314.16" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="gauge-text">
+                <div class="gauge-value" id="shsValue" style="color:${color}">0</div>
+                <div class="gauge-label">System Health</div>
+            </div>
+        </div>
+        <div class="shs-details">
+            <div class="shs-stat"><div class="val" style="color:var(--accent)">${m.openCount.toLocaleString()}</div><div class="lbl">Open Issues</div></div>
+            <div class="shs-stat"><div class="val" style="color:var(--green)">${m.fixRate.toFixed(1)}%</div><div class="lbl">Fix Rate</div></div>
+            <div class="shs-stat"><div class="val" style="color:var(--orange)">${medianYr}yr</div><div class="lbl">Median Age</div></div>
+            <div class="shs-stat"><div class="val" style="color:var(--red)">${m.escalationRate.toFixed(1)}%</div><div class="lbl">Escalation Rate</div></div>
+        </div>`;
+    setTimeout(() => animateGauge(m.shs), 200);
+}
+
+// ── NEW: Lifecycle Funnel (v0.2.0) ───────────────
+function renderLifecycleFunnel(m) {
+    const maxCount = m.lifecycle[0].count || 1;
+    let html = '<div class="lifecycle-funnel">';
+    m.lifecycle.forEach((stage, i) => {
+        const pct = (stage.count / maxCount * 100);
+        const barW = Math.max(pct, 8);
+        html += `
+        <div class="lifecycle-stage" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues">
+            <div class="lifecycle-label">
+                <div class="lifecycle-icon" style="background:${stage.color}">${stage.icon}</div>
+                ${stage.label}
+            </div>
+            <div class="lifecycle-bar-track">
+                <div class="lifecycle-bar" style="width:${barW}%;background:${stage.color}">
+                    <span class="lifecycle-count">${stage.count.toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="lifecycle-pct">${pct.toFixed(0)}%</div>
+        </div>`;
+        // Drop-off indicator between stages
+        if (i < m.lifecycle.length - 1) {
+            const next = m.lifecycle[i+1];
+            const drop = stage.count > 0 ? ((stage.count - next.count) / stage.count * 100).toFixed(0) : 0;
+            if (drop > 0) {
+                html += `<div class="lifecycle-drop"><span class="arrow">\u2193</span> ${drop}% drop-off</div>`;
+            }
+        }
+    });
+    html += '</div>';
+    $('lifecycleBody').innerHTML = html;
+}
+
+function renderFunnel(m) {
+    const maxCount = m.funnel[0].count || 1;
+    let html = '';
+    m.funnel.forEach((stage, i) => {
+        const pct = (stage.count / maxCount * 100);
+        const barW = Math.max(pct, 6);
+        html += `
+        <div class="funnel-stage" data-tooltip="${stage.desc}: ${stage.count.toLocaleString()} issues (${pct.toFixed(0)}%)" style="--delay:${i*0.12}s">
+            <div class="funnel-label">${stage.label}</div>
+            <div class="funnel-bar-track">
+                <div class="funnel-bar" style="width:${barW}%;background:${stage.color}">
+                    <span class="funnel-count">${stage.count.toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="funnel-pct">${pct.toFixed(0)}%</div>
+        </div>`;
+    });
+    $('funnelBody').innerHTML = html;
+}
+
+function renderDonut(m) {
+    if (m.statuses.length === 0) {
+        $('donutBody').innerHTML = '<p style="color:var(--text-muted)">No open issues to classify.</p>';
+        return;
+    }
+    const total = m.statuses.reduce((s, x) => s + x.count, 0);
+    const circ = 2 * Math.PI * 40;
+    let offset = 0;
+    let circles = '', legend = '';
+    m.statuses.forEach(s => {
+        const pct = (s.count / total) * 100;
+        const dash = pct / 100 * circ;
+        const gap = circ - dash;
+        circles += `<circle cx="50" cy="50" r="40" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="-${offset.toFixed(1)}" class="donut-seg" data-label="${s.name}" data-count="${s.count}" data-pct="${pct.toFixed(0)}"/>`;
+        legend += `<div class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.name} <span class="legend-val">${s.count} (${pct.toFixed(0)}%)</span></div>`;
+        offset += dash;
+    });
+    $('donutBody').innerHTML = `
+        <div class="donut-wrap">
+            <div class="donut-container">
+                <svg class="donut-svg" viewBox="0 0 100 100">${circles}</svg>
+                <div class="donut-center"><div class="big" id="donutCenter">${total}</div><div class="small" id="donutLabel">open</div></div>
+            </div>
+            <div class="legend">${legend}</div>
+        </div>`;
+}
+
+function renderAge(m) {
+    const maxC = Math.max(...m.ageDist.map(b => b.count), 1);
+    let html = '<div class="age-chart">';
+    m.ageDist.forEach(b => {
+        const h = (b.count / maxC * 100);
+        html += `<div class="age-col" title="${b.label}: ${b.count}"><div class="age-bar-wrap"><div class="age-bar" style="height:${h}%"></div></div><div class="age-label">${b.label}</div><div class="age-count">${b.count}</div></div>`;
+    });
+    html += '</div>';
+    $('ageBody').innerHTML = html;
+}
+
+// ── NEW: Enhanced Heatmap with severity indicators (v0.2.0) ──
+function renderHeatmap(m) {
+    if (m.areas.length === 0) {
+        $('heatmapBody').innerHTML = '<p style="color:var(--text-muted)">No label-based areas detected.</p>';
+        return;
+    }
+    // Compute column ranges for severity coloring
+    const vals = {
+        total: m.areas.map(a => a.total),
+        bugs: m.areas.map(a => a.bugs),
+        regressions: m.areas.map(a => a.regressions),
+        age: m.areas.map(a => a.ageDays),
+        fix_rate: m.areas.map(a => a.fix_rate),
+        stale: m.areas.map(a => a.stale),
+        dsat: m.areas.map(a => a.dsat),
+    };
+    const range = key => ({ lo: Math.min(...vals[key]), hi: Math.max(...vals[key]) });
+
+    let rows = '';
+    m.areas.forEach(a => {
+        const totalS = severityColor(a.total, range('total').lo, range('total').hi);
+        const bugS = severityColor(a.bugs, range('bugs').lo, range('bugs').hi);
+        const regS = severityColor(a.regressions, range('regressions').lo, range('regressions').hi);
+        const ageS = severityColor(a.ageDays, range('age').lo, range('age').hi);
+        const fixS = severityColorInverse(a.fix_rate, range('fix_rate').lo, range('fix_rate').hi);
+        const staleS = severityColor(a.stale, range('stale').lo, range('stale').hi);
+        const dsatS = severityColor(a.dsat, range('dsat').lo, range('dsat').hi);
+
+        // Overall severity = worst of stale + dsat
+        const worst = dsatS.label === 'red' || staleS.label === 'red' ? dsatS :
+                       dsatS.label === 'amber' || staleS.label === 'amber' ? staleS : dsatS;
+
+        rows += `<tr class="heatmap-row">
+            <td class="area-name"><span class="area-dot" style="background:${worst.text}"></span>${a.name}</td>
+            <td><span class="heat-cell" style="background:${totalS.bg};color:${totalS.text}">${a.total}</span></td>
+            <td><span class="heat-cell" style="background:${bugS.bg};color:${bugS.text}">${a.bugs}</span></td>
+            <td><span class="heat-cell" style="background:${regS.bg};color:${regS.text}">${a.regressions}</span></td>
+            <td><span class="heat-cell" style="background:${ageS.bg};color:${ageS.text}">${a.ageLabel}</span></td>
+            <td><span class="heat-cell" style="background:${fixS.bg};color:${fixS.text}">${a.fix_rate.toFixed(1)}%</span></td>
+            <td><span class="heat-cell" style="background:${staleS.bg};color:${staleS.text}">${a.stale}</span></td>
+            <td><span class="heat-cell" style="background:${dsatS.bg};color:${dsatS.text}">${a.dsat}</span></td>
+        </tr>`;
+    });
+    $('heatmapBody').innerHTML = `<table class="heatmap-table"><thead><tr><th>Label</th><th>Total</th><th>Bugs</th><th>Regressions</th><th>Median Age</th><th>Fix Rate</th><th>Stale</th><th>DSAT</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderSparkline(m) {
+    const counts = m.monthly.map(d => d.count);
+    const labels = m.monthly.map(d => d.label);
+    if (counts.every(c => c === 0)) {
+        $('sparkBody').innerHTML = '<p style="color:var(--text-muted)">No filing data in the last 12 months.</p>';
+        return;
+    }
+    const pts = sparkPoints(counts);
+    const maxI = counts.indexOf(Math.max(...counts));
+    const minI = counts.indexOf(Math.min(...counts));
+
+    const last3 = counts.slice(-3).reduce((a,b)=>a+b,0) / 3;
+    const last6 = counts.slice(-6).reduce((a,b)=>a+b,0) / 6;
+    const direction = last3 > last6 * 1.15 ? '<span style="color:var(--red)">\u2191 increasing</span>'
+                    : last3 < last6 * 0.85 ? '<span style="color:var(--green)">\u2193 decreasing</span>'
+                    : '<span style="color:var(--orange)">\u2194\uFE0F flat</span>';
+
+    let dots = '';
+    const mn = Math.min(...counts), mx = Math.max(...counts), rng = mx - mn || 1;
+    const w = 280, h = 60, pad = 4;
+    const step = (w - 2*pad) / (counts.length - 1);
+    [maxI, minI].forEach(idx => {
+        const x = pad + idx * step;
+        const y = h - pad - ((counts[idx]-mn)/rng)*(h-2*pad);
+        const color = idx === maxI ? '#3fb950' : '#f85149';
+        dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}"/>`;
+        dots += `<text x="${x.toFixed(1)}" y="${(y-8).toFixed(1)}" class="spark-val" fill="${color}">${counts[idx]}</text>`;
+    });
+    let monthLabels = '';
+    labels.forEach((l, i) => {
+        monthLabels += `<text x="${(pad + i*step).toFixed(0)}" y="78" class="spark-month">${l}</text>`;
+    });
+
+    $('sparkBody').innerHTML = `
+        <p style="color:var(--text-muted);margin-bottom:10px;font-size:0.88em">
+            3-month avg: <strong>${last3.toFixed(0)}/mo</strong> &middot;
+            6-month avg: <strong>${last6.toFixed(0)}/mo</strong> &middot;
+            Direction: ${direction}
+        </p>
+        <div class="sparkline-wrap">
+            <svg viewBox="0 0 290 84" width="100%" preserveAspectRatio="xMidYMid meet">
+                <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+                </linearGradient></defs>
+                <polyline points="${pts}" style="fill:url(#sparkGrad);stroke:none"/>
+                <polyline points="${pts}" class="spark-line"/>
+                ${dots} ${monthLabels}
+            </svg>
+        </div>`;
+}
+
+function renderKPIs(m) {
+    const kpis = [
+        {label:'No Response Rate %', value:m.noResponseRate.toFixed(1), color:'var(--red)', bar: Math.min(m.noResponseRate, 100)},
+        {label:'Untriaged Rate %', value:m.untriagedRate.toFixed(1), color:'var(--orange)', bar: Math.min(m.untriagedRate, 100)},
+        {label:'Stale Items (>30d)', value:m.staleCount.toLocaleString(), color:'var(--red)', bar: Math.min(m.staleCount / Math.max(m.openCount,1) * 100, 100)},
+        {label:'DSAT Score', value:m.dsatScore.toLocaleString(), color:'var(--purple)', bar: Math.min(m.dsatScore / Math.max(m.openCount,1) * 100, 100)},
+    ];
+    let html = '';
+    kpis.forEach(k => {
+        html += `<div class="kpi-card animate-in"><div class="value" style="color:${k.color}">${k.value}</div><div class="label">${k.label}</div><div class="mini-bar"><div class="mini-bar-fill" style="width:${k.bar.toFixed(0)}%;background:${k.color}"></div></div></div>`;
+    });
+    $('kpiGrid').innerHTML = html;
+}
+
+// ── Gauge Animation ──────────────────────────────
+function animateGauge(target) {
+    const circ = 2 * Math.PI * 50;
+    const el = $('shsGauge');
+    const valEl = $('shsValue');
+    if (!el || !valEl) return;
+    const duration = 1400, start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const dashLen = ease * (target/100) * circ;
+        el.setAttribute('stroke-dasharray', `${dashLen} ${circ - dashLen}`);
+        valEl.textContent = Math.round(ease * target);
+        if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+// ── Bind Interactions ────────────────────────────
+function bindInteractions() {
+    const tip = $('funnelTip');
+    // Lifecycle funnel tooltips
+    document.querySelectorAll('.lifecycle-stage').forEach(s => {
+        s.addEventListener('mouseenter', () => { tip.textContent = s.dataset.tooltip; tip.classList.add('show'); });
+        s.addEventListener('mousemove', e => { tip.style.left = (e.clientX+12)+'px'; tip.style.top = (e.clientY-30)+'px'; });
+        s.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
+    });
+    // Classic funnel tooltips
+    document.querySelectorAll('.funnel-stage').forEach(s => {
+        s.addEventListener('mouseenter', () => { tip.textContent = s.dataset.tooltip; tip.classList.add('show'); });
+        s.addEventListener('mousemove', e => { tip.style.left = (e.clientX+12)+'px'; tip.style.top = (e.clientY-30)+'px'; });
+        s.addEventListener('mouseleave', () => { tip.classList.remove('show'); });
+    });
+    // Donut hover
+    const dc = $('donutCenter'), dl = $('donutLabel');
+    if (dc && dl) {
+        const totalOpen = dc.textContent;
+        document.querySelectorAll('.donut-seg').forEach(seg => {
+            seg.addEventListener('mouseenter', () => { dc.textContent = seg.dataset.count; dl.textContent = seg.dataset.label; });
+            seg.addEventListener('mouseleave', () => { dc.textContent = totalOpen; dl.textContent = 'open'; });
+        });
+    }
+    // Heatmap click
+    document.querySelectorAll('.heatmap-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const was = row.classList.contains('active');
+            document.querySelectorAll('.heatmap-row').forEach(r => r.classList.remove('active'));
+            if (!was) row.classList.add('active');
+        });
+    });
+}
+
+// ── Main Entry Point ─────────────────────────────
+async function startAnalysis(event) {
+    if (event) event.preventDefault();
+    hideError();
+    const raw = $('repoInput').value.trim();
+    if (!raw) return false;
+
+    let owner, repo;
+    try {
+        const cleaned = raw.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\/+$/, '').replace(/\.git$/, '');
+        const parts = cleaned.split('/');
+        if (parts.length < 2) throw new Error('Format: owner/repo');
+        owner = parts[0]; repo = parts[1];
+    } catch {
+        showError('Please enter a valid repository: owner/repo or a GitHub URL.');
+        return false;
+    }
+
+    currentRepo = `${owner}/${repo}`;
+    const token = $('ghToken')?.value.trim() || '';
+
+    $('progressSection').style.display = 'block';
+    $('dashboard').style.display = 'none';
+    $('progressBar').style.width = '0%';
+    $('progressText').innerHTML = '<span class="spinner"></span>Connecting to GitHub API...';
+    $('analyzeBtn').disabled = true;
+    $('analyzeBtn').textContent = 'Analyzing...';
+
+    try {
+        await fetchIssues(owner, repo, token);
+        $('progressText').innerHTML = `<strong>${allIssues.length}</strong> issues loaded. Computing metrics...`;
+        await new Promise(r => setTimeout(r, 300));
+
+        const metrics = computeMetrics(allIssues);
+        $('progressSection').style.display = 'none';
+        renderDashboard(metrics);
+        $('dashboard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    } catch (err) {
+        $('progressSection').style.display = 'none';
+        showError(err.message);
+    } finally {
+        $('analyzeBtn').disabled = false;
+        $('analyzeBtn').textContent = 'Analyze';
+    }
+    return false;
+}
+
+// ── URL param support ────────────────────────────
+window.addEventListener('load', () => {
+    const params = new URLSearchParams(window.location.search);
+    const repo = params.get('repo');
+    if (repo) {
+        $('repoInput').value = repo;
+        startAnalysis(new Event('submit'));
+    }
+});
+</script>
+</body>
+</html>

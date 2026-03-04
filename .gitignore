@@ -38,5 +38,6 @@ htmlcov/
 .ruff_cache/
 
 # Demo video recordings
-demo-video.webm
-demo-video.mp4
+*.mp4
+*.webm
+_video_tmp/
