@@ -8,7 +8,11 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 <style>
 /* ══════════════════════════════════════════════════════
    DESIGN SYSTEM — Space-Age Glassmorphism
@@ -489,7 +493,7 @@ a:hover { color: var(--cyan); }
 
 /* ── CHART CONTAINERS ─────────────────────────────── */
 .chart-wrap { position: relative; width: 100%; }
-.chart-wrap canvas { width: 100% !important; }
+.chart-wrap > div { width: 100% !important; }
 
 /* ── HEATMAP TABLE ────────────────────────────────── */
 .heatmap-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
@@ -790,11 +794,12 @@ let allIssues = [];
 let currentRepo = '';
 let chartInstances = {};
 
-// ── Chart.js dark theme defaults ─────────────────
-if (typeof Chart !== 'undefined') {
-    Chart.defaults.color = '#7a8ba8';
-    Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
-    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+// ── amCharts 5 helper: dispose previous chart for a div ──
+function disposeChart(id) {
+    if (chartInstances[id]) {
+        chartInstances[id].dispose();
+        delete chartInstances[id];
+    }
 }
 
 // ── Helpers ──────────────────────────────────────
@@ -1063,7 +1068,7 @@ const DEMO_REPO = 'pallets/flask';
 
 // ── Render Engine ────────────────────────────────
 function renderDashboard(m) {
-    Object.values(chartInstances).forEach(c => { if (c && c.destroy) c.destroy(); });
+    Object.keys(chartInstances).forEach(id => disposeChart(id));
     chartInstances = {};
     $('dashboard').style.display = 'block';
     renderRepoHeader(m);
@@ -1156,72 +1161,167 @@ function renderDonut(m) {
         $('donutBody').innerHTML = '<p style="color:var(--text-faint)">No open issues to classify.</p>';
         return;
     }
-    const total = m.statuses.reduce((s, x) => s + x.count, 0);
-    $('donutBody').innerHTML = '<div class="chart-wrap" style="max-height:220px"><canvas id="donutChart"></canvas></div>';
-    if (chartInstances.donut) chartInstances.donut.destroy();
-    chartInstances.donut = new Chart(document.getElementById('donutChart'), {
-        type: 'doughnut',
-        data: {
-            labels: m.statuses.map(s => s.name),
-            datasets: [{
-                data: m.statuses.map(s => s.count),
-                backgroundColor: m.statuses.map(s => s.color),
-                borderColor: 'rgba(15,20,45,0.8)',
-                borderWidth: 3,
-                hoverBorderColor: '#e8ecf4',
-                hoverBorderWidth: 2,
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: true, cutout: '65%',
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: { color: '#7a8ba8', font: { size: 11, family: "'Inter'" }, padding: 12, usePointStyle: true, pointStyleWidth: 10 },
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(15,20,45,0.9)',
-                    borderColor: 'rgba(255,255,255,0.08)',
-                    borderWidth: 1, titleColor: '#e8ecf4', bodyColor: '#7a8ba8', cornerRadius: 10,
-                    callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${(ctx.parsed/total*100).toFixed(0)}%)` }
-                }
-            }
-        }
+    disposeChart('donutChart');
+    $('donutBody').innerHTML = '<div class="chart-wrap" style="height:260px"><div id="donutChart" style="width:100%;height:100%"></div></div>';
+
+    const root = am5.Root.new('donutChart');
+    root.setThemes([am5themes_Animated.new(root), am5themes_Dark.new(root)]);
+
+    const chart = root.container.children.push(am5percent.PieChart.new(root, {
+        innerRadius: am5.percent(60),
+        layout: root.horizontalLayout,
+    }));
+
+    const series = chart.series.push(am5percent.PieSeries.new(root, {
+        valueField: 'count',
+        categoryField: 'name',
+        fillField: 'fill',
+    }));
+
+    // Gorgeous slice styling
+    series.slices.template.setAll({
+        strokeWidth: 2,
+        stroke: am5.color(0x0a0e1a),
+        cornerRadius: 6,
+        shadowBlur: 10,
+        shadowColor: am5.color(0x000000),
+        shadowOffsetX: 2,
+        shadowOffsetY: 2,
+        tooltipText: '{category}: {value} ({valuePercentTotal.formatNumber("#.0")}%)',
     });
+    series.slices.template.states.create('hover', {
+        shadowBlur: 20,
+        scale: 1.04,
+    });
+
+    // Labels
+    series.labels.template.setAll({
+        fill: am5.color(0x7a8ba8),
+        fontSize: 11,
+        text: '{category}',
+    });
+    series.ticks.template.setAll({
+        stroke: am5.color(0x4a5b78),
+    });
+
+    // Custom palette (status colors)
+    const statusColorMap = {
+        untriaged: 0xef5350,
+        triaged: 0x66bb6a,
+        labeled: 0xba68c8,
+        needs_info: 0xffa726,
+        in_progress: 0x64b5f6,
+    };
+    const data = m.statuses.map(s => ({
+        name: s.name,
+        count: s.count,
+        fill: am5.color(statusColorMap[s.name] || 0x7a8ba8),
+    }));
+    series.data.setAll(data);
+
+    // Legend
+    const legend = chart.children.push(am5.Legend.new(root, {
+        centerY: am5.percent(50),
+        y: am5.percent(50),
+        layout: root.verticalLayout,
+    }));
+    legend.labels.template.setAll({ fill: am5.color(0x7a8ba8), fontSize: 11 });
+    legend.valueLabels.template.setAll({ fill: am5.color(0xe8ecf4), fontSize: 11 });
+    legend.data.setAll(series.dataItems);
+
+    series.appear(1000, 100);
+    chart.appear(1000, 100);
+    chartInstances.donutChart = root;
 }
 
 function renderAge(m) {
-    $('ageBody').innerHTML = '<div class="chart-wrap"><canvas id="ageChart"></canvas></div>';
-    if (chartInstances.age) chartInstances.age.destroy();
-    const ctx = document.getElementById('ageChart');
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(186,104,200,0.8)');
-    gradient.addColorStop(1, 'rgba(100,181,246,0.4)');
-    chartInstances.age = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: m.ageDist.map(b => b.label),
-            datasets: [{
-                data: m.ageDist.map(b => b.count),
-                backgroundColor: gradient, borderRadius: 6, borderSkipped: false, maxBarThickness: 40,
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: true, aspectRatio: 1.8,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(15,20,45,0.9)', borderColor: 'rgba(255,255,255,0.08)',
-                    borderWidth: 1, titleColor: '#e8ecf4', bodyColor: '#7a8ba8', cornerRadius: 10,
-                    callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()} issues` }
-                }
-            },
-            scales: {
-                x: { ticks: { color: '#4a5b78', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
-                y: { ticks: { color: '#4a5b78', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, border: { display: false } },
-            },
-        }
+    disposeChart('ageChart');
+    $('ageBody').innerHTML = '<div class="chart-wrap" style="height:240px"><div id="ageChart" style="width:100%;height:100%"></div></div>';
+
+    const root = am5.Root.new('ageChart');
+    root.setThemes([am5themes_Animated.new(root), am5themes_Dark.new(root)]);
+
+    const chart = root.container.children.push(am5xy.XYChart.new(root, {
+        panX: false, panY: false, wheelX: 'none', wheelY: 'none',
+        layout: root.verticalLayout,
+    }));
+
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+        categoryField: 'label',
+        renderer: am5xy.AxisRendererX.new(root, {
+            minGridDistance: 20,
+            cellStartLocation: 0.15,
+            cellEndLocation: 0.85,
+        }),
+    }));
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x4a5b78), fontSize: 10 });
+    xAxis.get('renderer').grid.template.set('visible', false);
+
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+        renderer: am5xy.AxisRendererY.new(root, {}),
+    }));
+    yAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x4a5b78), fontSize: 10 });
+    yAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.03 });
+
+    const series = chart.series.push(am5xy.ColumnSeries.new(root, {
+        xAxis, yAxis,
+        valueYField: 'count',
+        categoryXField: 'label',
+        tooltip: am5.Tooltip.new(root, {
+            labelText: '{categoryX}: {valueY} issues',
+        }),
+    }));
+
+    // amCharts gradient columns with rounded corners and glow
+    series.columns.template.setAll({
+        cornerRadiusTL: 6,
+        cornerRadiusTR: 6,
+        strokeOpacity: 0,
+        shadowBlur: 8,
+        shadowColor: am5.color(0xba68c8),
+        shadowOffsetY: 3,
+        maxWidth: 44,
     });
+    series.columns.template.adapters.add('fill', (fill, target) => {
+        return chart.get('colors').getIndex(target.dataItem.get('index') || series.columns.indexOf(target));
+    });
+    series.columns.template.adapters.add('stroke', (stroke, target) => {
+        return chart.get('colors').getIndex(target.dataItem.get('index') || series.columns.indexOf(target));
+    });
+
+    // Custom purple-to-blue gradient palette
+    chart.get('colors').set('colors', [
+        am5.color(0xba68c8), am5.color(0xab5cc0), am5.color(0x9c50b8),
+        am5.color(0x8d44b0), am5.color(0x7e4fb5), am5.color(0x6f5aba),
+        am5.color(0x5f6abf), am5.color(0x4f8ac5),
+    ]);
+
+    series.columns.template.states.create('hover', {
+        shadowBlur: 16,
+        shadowColor: am5.color(0x64b5f6),
+    });
+
+    // Style the tooltip
+    const tooltip = series.get('tooltip');
+    if (tooltip) {
+        tooltip.get('background').setAll({
+            fill: am5.color(0x0f1429),
+            fillOpacity: 0.92,
+            stroke: am5.color(0xffffff),
+            strokeOpacity: 0.08,
+            cornerRadius: 10,
+            shadowBlur: 12,
+            shadowColor: am5.color(0x000000),
+        });
+        tooltip.label.setAll({ fill: am5.color(0x7a8ba8), fontSize: 12 });
+    }
+
+    xAxis.data.setAll(m.ageDist);
+    series.data.setAll(m.ageDist);
+
+    series.appear(1000, 100);
+    chart.appear(1000, 100);
+    chartInstances.ageChart = root;
 }
 
 function renderHeatmap(m) {
@@ -1273,51 +1373,129 @@ function renderSparkline(m) {
                     : last3 < last6*0.85 ? '<span style="color:var(--green)">↓ decreasing</span>'
                     : '<span style="color:var(--orange)">↔️ flat</span>';
 
+    disposeChart('sparkChart');
     $('sparkBody').innerHTML = `
         <div class="widget-desc" style="margin-bottom:12px">
             3-month avg: <strong style="color:var(--text)">${last3.toFixed(0)}/mo</strong> ·
             6-month avg: <strong style="color:var(--text)">${last6.toFixed(0)}/mo</strong> ·
             Direction: ${direction}
         </div>
-        <div class="chart-wrap" style="max-height:220px"><canvas id="sparkChart"></canvas></div>`;
+        <div class="chart-wrap" style="height:220px"><div id="sparkChart" style="width:100%;height:100%"></div></div>`;
 
-    if (chartInstances.spark) chartInstances.spark.destroy();
-    const ctx = document.getElementById('sparkChart');
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(100,181,246,0.25)');
-    gradient.addColorStop(1, 'rgba(100,181,246,0)');
-    const maxI = counts.indexOf(Math.max(...counts));
-    const minI = counts.indexOf(Math.min(...counts));
-    const pointColors = counts.map((_, i) => i === maxI ? '#66bb6a' : i === minI ? '#ef5350' : 'transparent');
-    const pointRadii = counts.map((_, i) => (i === maxI || i === minI) ? 6 : 0);
+    const root = am5.Root.new('sparkChart');
+    root.setThemes([am5themes_Animated.new(root), am5themes_Dark.new(root)]);
 
-    chartInstances.spark = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                data: counts, borderColor: '#64b5f6', borderWidth: 2.5,
-                backgroundColor: gradient, fill: true, tension: 0.4,
-                pointBackgroundColor: pointColors, pointBorderColor: pointColors,
-                pointRadius: pointRadii, pointHoverRadius: 6,
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: true, aspectRatio: 2.5,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(15,20,45,0.9)', borderColor: 'rgba(255,255,255,0.08)',
-                    borderWidth: 1, titleColor: '#e8ecf4', bodyColor: '#7a8ba8', cornerRadius: 10,
-                    callbacks: { label: ctx => ` ${ctx.parsed.y} issues filed` }
-                }
-            },
-            scales: {
-                x: { ticks: { color: '#4a5b78', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
-                y: { ticks: { color: '#4a5b78', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, border: { display: false }, beginAtZero: true },
-            },
-        }
+    const chart = root.container.children.push(am5xy.XYChart.new(root, {
+        panX: false, panY: false, wheelX: 'none', wheelY: 'none',
+    }));
+
+    // Cursor for interactive hover
+    chart.set('cursor', am5xy.XYCursor.new(root, {
+        behavior: 'none',
+        xAxis: undefined,
+    }));
+    const cursor = chart.get('cursor');
+    cursor.lineX.setAll({ stroke: am5.color(0x64b5f6), strokeOpacity: 0.3, strokeDasharray: [4, 4] });
+    cursor.lineY.set('visible', false);
+
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+        categoryField: 'label',
+        renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 30 }),
+    }));
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x4a5b78), fontSize: 10 });
+    xAxis.get('renderer').grid.template.set('visible', false);
+
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+        min: 0,
+        renderer: am5xy.AxisRendererY.new(root, {}),
+    }));
+    yAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x4a5b78), fontSize: 10 });
+    yAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.03 });
+
+    const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
+        xAxis, yAxis,
+        valueYField: 'count',
+        categoryXField: 'label',
+        tooltip: am5.Tooltip.new(root, {
+            labelText: '{categoryX}: {valueY} issues',
+        }),
+    }));
+
+    // Gorgeous gradient fill under the line
+    series.fills.template.setAll({ visible: true, fillOpacity: 1 });
+    series.fills.template.set('fillGradient', am5.LinearGradient.new(root, {
+        stops: [
+            { color: am5.color(0x64b5f6), opacity: 0.35 },
+            { color: am5.color(0x4dd0e1), opacity: 0.15 },
+            { color: am5.color(0x0a0e1a), opacity: 0 },
+        ],
+        rotation: 90,
+    }));
+
+    // Line styling with glow
+    series.strokes.template.setAll({
+        strokeWidth: 3,
+        stroke: am5.color(0x64b5f6),
+        shadowBlur: 12,
+        shadowColor: am5.color(0x64b5f6),
+        shadowOffsetY: 3,
     });
+
+    // Bullet dots on peaks
+    const maxCount = Math.max(...counts);
+    const minCount = Math.min(...counts);
+    series.bullets.push(() => {
+        const circle = am5.Circle.new(root, {
+            radius: 0,
+            fill: am5.color(0x64b5f6),
+            stroke: am5.color(0x0a0e1a),
+            strokeWidth: 2,
+        });
+        return am5.Bullet.new(root, { sprite: circle });
+    });
+    series.events.on('datavalidated', () => {
+        series.bullets.clear();
+        series.bullets.push((root, series, dataItem) => {
+            const val = dataItem.get('valueY');
+            let fillColor = am5.color(0x64b5f6);
+            let r = 0;
+            if (val === maxCount) { fillColor = am5.color(0x66bb6a); r = 5; }
+            else if (val === minCount) { fillColor = am5.color(0xef5350); r = 5; }
+            return am5.Bullet.new(root, {
+                sprite: am5.Circle.new(root, {
+                    radius: r,
+                    fill: fillColor,
+                    stroke: am5.color(0x0a0e1a),
+                    strokeWidth: 2,
+                    shadowBlur: r > 0 ? 8 : 0,
+                    shadowColor: fillColor,
+                }),
+            });
+        });
+    });
+
+    // Tooltip styling
+    const tooltip = series.get('tooltip');
+    if (tooltip) {
+        tooltip.get('background').setAll({
+            fill: am5.color(0x0f1429),
+            fillOpacity: 0.92,
+            stroke: am5.color(0xffffff),
+            strokeOpacity: 0.08,
+            cornerRadius: 10,
+            shadowBlur: 12,
+            shadowColor: am5.color(0x000000),
+        });
+        tooltip.label.setAll({ fill: am5.color(0x7a8ba8), fontSize: 12 });
+    }
+
+    const data = m.monthly.map(d => ({ label: d.label, count: d.count }));
+    xAxis.data.setAll(data);
+    series.data.setAll(data);
+
+    series.appear(1200, 100);
+    chart.appear(1000, 100);
+    chartInstances.sparkChart = root;
 }
 
 function renderKPIs(m) {
